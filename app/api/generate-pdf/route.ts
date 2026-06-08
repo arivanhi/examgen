@@ -17,23 +17,28 @@ export async function POST(request: Request) {
 		const page = await browser.newPage();
 
 		// 3. Render HTML ke halaman browser virtual
-		await page.setContent(finalHtml, { waitUntil: "networkidle0" });
+		await page.setContent(finalHtml, { 
+		waitUntil: 'networkidle2', // Mengizinkan sisa 2 koneksi jaringan yang belum selesai
+		timeout: 60000 // Memperpanjang batas waktu tunggu menjadi 60 detik
+		});
 
 		// 4. Konversi ke PDF
 		const pdfBuffer = await page.pdf({
-			format: "A4",
-			printBackground: true,
-			displayHeaderFooter: true,
-			footerTemplate: `
-        <style>
-          .footer-container { width: 100%; font-size: 10pt; text-align: right; padding-right: 20mm; }
-        </style>
-        <div class="footer-container">
-          <span class="pageNumber"></span> / <span class="totalPages"></span>
-        </div>
-      `,
-			headerTemplate: `<div></div>`,
-			margin: { top: "15mm", bottom: "20mm", left: "20mm", right: "20mm" },
+		width: '215mm',  // Ukuran lebar F4 / Folio
+		height: '330mm', // Ukuran tinggi F4 / Folio
+		printBackground: true,
+		displayHeaderFooter: true,
+		footerTemplate: `
+			<style>
+			/* Ubah font-size di sini menjadi 9pt */
+			.footer-container { width: 100%; font-size: 9pt; text-align: right; padding-right: 20mm; font-family: 'Times New Roman', serif; }
+			</style>
+			<div class="footer-container">
+			<span class="pageNumber"></span> / <span class="totalPages"></span>
+			</div>
+		`,
+		headerTemplate: `<div></div>`,
+		margin: { top: '15mm', bottom: '20mm', left: '20mm', right: '20mm' }
 		});
 
 		await browser.close();
