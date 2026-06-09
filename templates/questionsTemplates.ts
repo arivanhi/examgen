@@ -6,6 +6,9 @@ export function htmlTemplateQuestions(data: any): string {
 		? data.metadata.dosenPengampu.join(", ")
 		: data.metadata.dosenPengampu;
 
+	// Deteksi logoBase64 hasil inject dari route.ts
+	const logoSrc = data.logoBase64 || "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
 	return `<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -44,7 +47,7 @@ export function htmlTemplateQuestions(data: any): string {
           <table class="doc-header">
             <tr>
               <td style="width:15%; text-align:center;">
-                <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" class="logo" alt="Logo UDINUS" />
+                <img src="${logoSrc}" class="logo" alt="Logo UDINUS" />
               </td>
               <td style="width:65%;">
                 <p class="header-fak">FAKULTAS TEKNIK</p>

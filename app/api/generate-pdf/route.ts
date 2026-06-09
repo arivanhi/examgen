@@ -3,6 +3,8 @@
 import { NextResponse } from "next/server";
 import puppeteer from "puppeteer";
 import { PDFDocument } from "pdf-lib";
+import fs from "fs";
+import path from "path";
 import { htmlTemplateAssessment } from "../../../templates/assesmentTemplates";
 import { htmlTemplateQuestions, htmlPengesahanStamp, htmlParafStamp } from "../../../templates/questionsTemplates";
 
@@ -16,6 +18,16 @@ export async function POST(request: Request) {
 
 	try {
 		const data = await request.json();
+
+		// BACA LOGO DARI FOLDER PUBLIC & CONVERT KE BASE64
+		try {
+			const logoPath = path.join(process.cwd(), "public", "logo_dinus.png");
+			const logoBuffer = fs.readFileSync(logoPath);
+			data.logoBase64 = `data:image/png;base64,${logoBuffer.toString("base64")}`;
+		} catch (err) {
+			console.warn("Logo logo_dinus.png tidak ditemukan, menggunakan placeholder.");
+			data.logoBase64 = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+		}
 
 		// 1. Generate PDF Assessment
 		const page1 = await browser.newPage();
