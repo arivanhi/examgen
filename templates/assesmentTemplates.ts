@@ -10,6 +10,100 @@ export function htmlTemplateAssessment(data: any): string {
 	// Deteksi logoBase64 hasil inject dari route.ts
 	const logoSrc = data.logoBase64 || "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
+	// ─── LOGIKA CABANG UNTUK TABEL MAPPING (ELEKTRO vs INDUSTRI) ────────────
+	const isElektro = data.metadata.programStudi === "Teknik Elektro";
+
+	const tabelMappingHtml = isElektro
+		? `
+  <p class="tabel-label">Tabel 2. Mapping Soal – CPMK – Sub CPMK:</p>
+  <table class="table-bordered" style="font-size:9pt;">
+    <thead>
+      <tr>
+        <th style="width:5%; text-align:center;">No.</th>
+        <th style="width:15%; text-align:center;">Bentuk Soal</th>
+        <th colspan="2" style="width:30%; text-align:center;">URAIAN MATERI</th>
+        <th style="width:35%; text-align:center;">CPMK dan SCPMK</th>
+        <th style="width:15%; text-align:center;">BOBOT SOAL (%)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${data.soalList
+				.map(
+					(s: any) => `
+        <tr>
+          <td style="text-align:center;">${s.nomorSoal}.</td>
+          <td style="text-align:center;">${s.bentukSoal}</td>
+          <td>${s.uraianMateri}</td>
+          <td style="text-align:center; white-space:nowrap;">SOAL<br/>No. ${s.nomorSoal}</td>
+          <td style="padding:0;">
+            <table style="width:100%; height:100%; border-collapse:collapse; border:none; margin:0;">
+              <tr>
+                <td style="border-bottom:1px solid #000; border-right:1px solid #000; padding:5px 8px; width:45%;"><strong>CPMK:</strong></td>
+                <td style="border-bottom:1px solid #000; padding:5px 8px; text-align:center;"><strong>${s.pemetaanCpmk.cpmk}</strong></td>
+              </tr>
+              <tr>
+                <td style="border-right:1px solid #000; padding:5px 8px;"><strong>SCPMK:</strong></td>
+                <td style="padding:5px 8px; text-align:center;"><strong>${s.pemetaanCpmk.subCpmk}</strong></td>
+              </tr>
+            </table>
+          </td>
+          <td style="text-align:center;"><strong>${s.bobotPersen}</strong></td>
+        </tr>
+      `,
+				)
+				.join("")}
+    </tbody>
+  </table>
+  `
+		: `
+  <p class="tabel-label">Tabel 2. Mapping Soal :</p>
+  <table class="table-bordered" style="font-size:9pt;">
+    <thead>
+      <tr>
+        <th rowspan="2" style="width:5%; text-align:center;">No.</th>
+        <th rowspan="2" style="width:15%; text-align:center;">Bentuk Soal</th>
+        <th colspan="2" rowspan="2" style="width:30%; text-align:center;">Uraian Materi</th>
+        <th colspan="${data.cpmkList.length}" style="text-align:center;">Ada hubungan Dengan CPMK (beri tanda &#10003;)</th>
+        <th rowspan="2" style="width:10%; text-align:center;">BOBOT SOAL (%)</th>
+      </tr>
+      <tr>
+        ${data.cpmkList
+					.map(
+						(c: any) => `
+          <th style="text-align:center; width:${40 / data.cpmkList.length}%;">CPMK<br/>${c.id.replace("CPMK ", "")}</th>
+        `,
+					)
+					.join("")}
+      </tr>
+    </thead>
+    <tbody>
+      ${data.soalList
+				.map(
+					(s: any) => `
+        <tr>
+          <td style="text-align:center;">${s.nomorSoal}.</td>
+          <td style="text-align:center;">${s.bentukSoal}</td>
+          <td>${s.uraianMateri}</td>
+          <td style="text-align:center; white-space:nowrap;">Soal<br/>No. ${s.nomorSoal}</td>
+          ${data.cpmkList
+						.map(
+							(c: any) => `
+            <td style="text-align:center; font-size:12pt; font-weight:bold;">
+              ${s.pemetaanCpmkIndustri && s.pemetaanCpmkIndustri.includes(c.id) ? "&#10003;" : ""}
+            </td>
+          `,
+						)
+						.join("")}
+          <td style="text-align:center;"><strong>${s.bobotPersen}</strong></td>
+        </tr>
+      `,
+				)
+				.join("")}
+    </tbody>
+  </table>
+  `;
+	// ─────────────────────────────────────────────────────────────────────────
+
 	return `<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -35,9 +129,9 @@ export function htmlTemplateAssessment(data: any): string {
     /* ─── Footer Paraf (pojok kanan bawah, muncul di setiap halaman) ─── */
     .paraf-fixed {
       position: fixed;
-      bottom: 0; /* Menempel pada batas margin bawah */
-      right: 0;  /* Menempel pada batas margin kanan */
-      width: 225px; /* Diperlebar agar teks tidak menyempit */
+      bottom: 0; 
+      right: 0;  
+      width: 225px; 
       z-index: 100;
       background: white;
     }
@@ -54,7 +148,7 @@ export function htmlTemplateAssessment(data: any): string {
     /* ─── Header Universitas ─── */
     .doc-header { 
       width: 100%; 
-      border-bottom: 3px double #000; /* Garis ganda di bawah header, bukan box */
+      border-bottom: 3px double #000; 
       border-collapse: collapse; 
       margin-bottom: 15px; 
       padding-bottom: 5px; 
@@ -173,46 +267,7 @@ export function htmlTemplateAssessment(data: any): string {
 			.join("")}
   </table>
 
-  <p class="tabel-label">Tabel 2. Mapping Soal – CPMK – Sub CPMK:</p>
-
-  <table class="table-bordered" style="font-size:9pt;">
-    <thead>
-      <tr>
-        <th style="width:5%; text-align:center;">No.</th>
-        <th style="width:15%; text-align:center;">Bentuk Soal</th>
-        <th colspan="2" style="width:30%; text-align:center;">URAIAN MATERI</th>
-        <th style="width:35%; text-align:center;">CPMK dan SCPMK</th>
-        <th style="width:15%; text-align:center;">BOBOT SOAL (%)</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${data.soalList
-				.map(
-					(s: any) => `
-        <tr>
-          <td style="text-align:center;">${s.nomorSoal}.</td>
-          <td style="text-align:center;">${s.bentukSoal}</td>
-          <td>${s.uraianMateri}</td>
-          <td style="text-align:center; white-space:nowrap;">SOAL<br/>No. ${s.nomorSoal}</td>
-          <td style="padding:0;">
-            <table style="width:100%; height:100%; border-collapse:collapse; border:none; margin:0;">
-              <tr>
-                <td style="border-bottom:1px solid #000; border-right:1px solid #000; padding:5px 8px; width:45%;"><strong>CPMK:</strong></td>
-                <td style="border-bottom:1px solid #000; padding:5px 8px; text-align:center;"><strong>${s.pemetaanCpmk.cpmk}</strong></td>
-              </tr>
-              <tr>
-                <td style="border-right:1px solid #000; padding:5px 8px;"><strong>SCPMK:</strong></td>
-                <td style="padding:5px 8px; text-align:center;"><strong>${s.pemetaanCpmk.subCpmk}</strong></td>
-              </tr>
-            </table>
-          </td>
-          <td style="text-align:center;"><strong>${s.bobotPersen}</strong></td>
-        </tr>
-      `,
-				)
-				.join("")}
-    </tbody>
-  </table>
+  ${tabelMappingHtml}
 
 </body>
 </html>`;

@@ -13,6 +13,15 @@ export function htmlTemplateQuestions(data: any): string {
 <html lang="id">
 <head>
   <meta charset="UTF-8">
+
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$']], displayMath: [['$$', '$$']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
   <style>
     * { box-sizing: border-box; }
     body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.5; color: #000; margin: 0; padding: 0; }
@@ -33,9 +42,20 @@ export function htmlTemplateQuestions(data: any): string {
     .instruksi { font-weight: bold; text-decoration: underline; margin: 10px 0 15px 0; font-size: 11pt; }
     .soal-item { margin-bottom: 20px; page-break-inside: avoid; }
     .soal-item table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    .soal-num { width: 25px; vertical-align: top; font-weight: bold; }
+    .soal-num { width: 25px; vertical-align: top; }
+    
     .soal-body { vertical-align: top; text-align: justify; word-break: break-word; overflow-wrap: break-word; }
-    .soal-body img { max-width: 100%; height: auto; margin-top: 8px; display: block; }
+    .teks-soal { white-space: pre-wrap; }
+    
+    /* PERBAIKAN UKURAN GAMBAR: Maksimal 45% lebar, dan dibatasi tingginya agar tidak menghabiskan kertas */
+    .soal-body img { 
+      max-width: 45%; 
+      max-height: 250px; 
+      object-fit: contain; 
+      margin-bottom: 8px; 
+      display: block; 
+      margin: auto;
+    }
   </style>
 </head>
 <body>
@@ -88,7 +108,6 @@ export function htmlTemplateQuestions(data: any): string {
               <td class="meta-divider">Dosen</td><td>:</td><td>${dosen}</td>
             </tr>
           </table>
-          <p class="instruksi">KERJAKAN SOAL PADA LEMBAR JAWAB YANG TELAH DISEDIAKAN SESUAI DENGAN URUTAN SOAL.</p>
         </td>
       </tr>
       ${data.soalList
@@ -101,15 +120,8 @@ export function htmlTemplateQuestions(data: any): string {
                 <tr>
                   <td class="soal-num">${soal.nomorSoal}.</td>
                   <td class="soal-body">
-                    ${soal.kontenSoal.gambarPendukung
-											.map(
-												(img: string) => `
-                      <img src="${img}" alt="Gambar soal ${soal.nomorSoal}" />
-                    `,
-											)
-											.join("")}
-                    <span>${soal.kontenSoal.teksPertanyaan}</span>
-                    
+                    ${soal.kontenSoal.gambarPendukung.map((img: string) => `<img src="${img}" alt="Gambar soal ${soal.nomorSoal}" />`).join("")}
+                    <div class="teks-soal">${soal.kontenSoal.teksPertanyaan} <strong>(Bobot: ${soal.bobotPersen}%)</strong></div>
                   </td>
                 </tr>
               </table>
@@ -150,7 +162,7 @@ export function htmlPengesahanStamp(data: any): string {
           <tr><td width="30%">Diperiksa oleh</td><td width="5%">:</td><td>Koordinator Mata Kuliah</td></tr>
           <tr><td>Nama</td><td>:</td><td>${data.pengesahan.koordinatorMk.nama}</td></tr>
           <tr><td>Tanggal</td><td>:</td><td>${data.pengesahan.koordinatorMk.tanggal}</td></tr>
-          <tr><td class="sign-row">Tandatangan</td><td>:</td><td></td></tr>
+          <tr><td class="sign-row">Tanda tangan</td><td>:</td><td></td></tr>
         </table>
       </td>
       <td width="50%">
@@ -158,7 +170,7 @@ export function htmlPengesahanStamp(data: any): string {
           <tr><td width="30%">Disahkan oleh</td><td width="5%">:</td><td>Kaprogdi Teknik Elektro</td></tr>
           <tr><td>Nama</td><td>:</td><td>${data.pengesahan.kaprogdi.nama}</td></tr>
           <tr><td>Tanggal</td><td>:</td><td>${data.pengesahan.kaprogdi.tanggal}</td></tr>
-          <tr><td class="sign-row">Tandatangan</td><td>:</td><td></td></tr>
+          <tr><td class="sign-row">Tanda tangan</td><td>:</td><td></td></tr>
         </table>
       </td>
     </tr>
@@ -176,9 +188,9 @@ export function htmlParafStamp(): string {
   <style>
     .paraf-fixed {
       position: fixed;
-      bottom: 0; /* Menempel pada batas margin bawah */
-      right: 0;  /* Menempel pada batas margin kanan */
-      width: 225px; /* Diperlebar agar teks tidak menyempit */
+      bottom: 0; 
+      right: 0;  
+      width: 225px; 
       z-index: 100;
       background: white;
     }

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+// Import database statis dari folder data
+import dbUjian from "../data/db_ujian.json";
 
 // ─── Helper: decode base64 PDF → trigger download ─────────────────────────
 function downloadBase64Pdf(base64: string, filename: string) {
@@ -61,16 +63,33 @@ export default function ExamGeneratorForm() {
 			uraianMateri: "",
 			bobotPersen: 0,
 			pemetaanCpmk: { subCpmk: "", cpmk: "" },
+			pemetaanCpmkIndustri: [] as string[],
 			kontenSoal: { teksPertanyaan: "", gambarPendukung: [] as string[] },
 		},
 	]);
 
 	const [pengesahan, setPengesahan] = useState({
 		koordinatorMk: { nama: "", tanggal: "" },
-		kaprogdi: { nama: "Dr. Ir. M ARY HERYANTO, S.T., M.Eng., IPU, ASEAN Eng", tanggal: "" },
+		kaprogdi: { nama: "Dr. Ir. M. ARY HERYANTO, M.Eng., IPU., Asean.Eng.", tanggal: "" },
 	});
 
 	const [isGenerating, setIsGenerating] = useState(false);
+
+	// ─── AUTO-UPDATE NAMA KAPROGDI BERDASARKAN PRODI ─────────────────────────
+	useEffect(() => {
+		let kaprogdiNama = "Dr. Ir. M. ARY HERYANTO, M.Eng., IPU., Asean.Eng."; // Default Elektro
+
+		if (metadata.programStudi === "Teknik Industri") {
+			kaprogdiNama = "Dr. HERWIN SUPRIJONO, M.T.";
+		} else if (metadata.programStudi === "Teknik Biomedis") {
+			kaprogdiNama = "Dr. Ir. ARIPIN, M.Kom., IPM., ASEAN Eng.";
+		}
+
+		setPengesahan((prev) => ({
+			...prev,
+			kaprogdi: { ...prev.kaprogdi, nama: kaprogdiNama },
+		}));
+	}, [metadata.programStudi]);
 
 	// ─── CPMK handlers ──────────────────────────────────────────────────────
 	const handleAddCpmk = () => {
@@ -78,7 +97,6 @@ export default function ExamGeneratorForm() {
 	};
 
 	const handleRemoveCpmk = (indexToRemove: number) => {
-		// Filter CPMK yang dihapus, lalu re-calculate urutan ID-nya
 		const updated = cpmkList.filter((_, index) => index !== indexToRemove);
 		const fixedOrder = updated.map((cpmk, index) => ({
 			...cpmk,
@@ -97,13 +115,13 @@ export default function ExamGeneratorForm() {
 				uraianMateri: "",
 				bobotPersen: 0,
 				pemetaanCpmk: { subCpmk: "", cpmk: "" },
+				pemetaanCpmkIndustri: [],
 				kontenSoal: { teksPertanyaan: "", gambarPendukung: [] },
 			},
 		]);
 	};
 
 	const handleRemoveSoal = (indexToRemove: number) => {
-		// Filter Soal yang dihapus, lalu re-calculate Nomor Soalnya
 		const updated = soalList.filter((_, index) => index !== indexToRemove);
 		const fixedOrder = updated.map((soal, index) => ({
 			...soal,
@@ -136,7 +154,7 @@ export default function ExamGeneratorForm() {
 			: metadata.sifatUtama;
 
 		const payload = {
-			templateId: "teknik_elektro",
+			templateId: metadata.programStudi === "Teknik Elektro" ? "teknik_elektro" : "teknik_industri",
 			metadata: {
 				...metadata,
 				hariTanggal: formattedDate,
@@ -162,10 +180,17 @@ export default function ExamGeneratorForm() {
 
 			const { assessmentPdf, questionsPdf } = await response.json();
 
-			downloadBase64Pdf(assessmentPdf, `${metadata.mataKuliah || "Ujian"}_Assessment.pdf`);
+			const namaProdi = metadata.programStudi.replace(/\s+/g, "");
+			downloadBase64Pdf(
+				assessmentPdf,
+				`${metadata.dosenPengampu}_${metadata.mataKuliah || "Ujian"}_Assessment_${namaProdi}.pdf`,
+			);
 
 			setTimeout(() => {
-				downloadBase64Pdf(questionsPdf, `${metadata.mataKuliah || "Ujian"}_Soal.pdf`);
+				downloadBase64Pdf(
+					questionsPdf,
+					`${metadata.dosenPengampu}_${metadata.mataKuliah || "Ujian"}_Soal_${namaProdi}.pdf`,
+				);
 			}, 600);
 		} catch (error) {
 			console.error(error);
@@ -178,24 +203,55 @@ export default function ExamGeneratorForm() {
 	// ─── Render ──────────────────────────────────────────────────────────────
 	return (
 		<main className="max-w-4xl mx-auto p-6 bg-gray-50 text-black min-h-screen">
-			<h1 className="text-2xl font-bold mb-6 text-center text-blue-900">Udinus Exam PDF Generator - Teknik Elektro</h1>
+			<h1 className="text-2xl font-bold mb-6 text-center text-blue-900">Udinus Exam PDF Generator - Fakultas Teknik</h1>
 
 			<form onSubmit={handleSubmit} className="space-y-8 bg-white p-6 rounded-lg shadow">
-				{/* ── SECTION 1: METADATA ─────────────────────────────────────── */}
+				{/* ── DATALIST DICTIONARIES ── */}
+				<datalist id="list-mata-kuliah">
+					{dbUjian.mataKuliah.map((mk, idx) => (
+						<option key={idx} value={mk} />
+					))}
+				</datalist>
+				<datalist id="list-dosen">
+					{dbUjian.dosen.map((dsn, idx) => (
+						<option key={idx} value={dsn} />
+					))}
+				</datalist>
+
+				{/* ── SECTION 1: IDENTITAS UJIAN ─────────────────────────────────── */}
 				<section>
 					<h2 className="text-xl font-semibold mb-4 border-b border-gray-300 pb-2">Identitas Ujian</h2>
 					<div className="grid grid-cols-2 gap-4">
-						<div>
+						<div className="col-span-2 md:col-span-1">
+							<label className="block text-sm font-medium mb-1">
+								Program Studi <span className="text-red-500">*</span>
+							</label>
+							<select
+								required
+								className="w-full border border-blue-500 bg-blue-50 p-2 rounded font-semibold text-blue-900"
+								value={metadata.programStudi}
+								onChange={(e) => setMetadata({ ...metadata, programStudi: e.target.value })}
+							>
+								<option value="Teknik Elektro">Teknik Elektro</option>
+								<option value="Teknik Industri">Teknik Industri</option>
+								<option value="Teknik Biomedis">Teknik Biomedis</option>
+							</select>
+							<p className="text-xs text-gray-500 mt-1">Mengubah prodi akan merubah format tabel PDF.</p>
+						</div>
+
+						<div className="col-span-2 md:col-span-1">
 							<label className="block text-sm font-medium mb-1">Mata Kuliah</label>
 							<input
 								type="text"
 								required
-								placeholder="Contoh: Fisika Dasar"
-								className="w-full border border-gray-300 p-2 rounded"
+								list="list-mata-kuliah"
+								placeholder="Ketik untuk mencari mata kuliah..."
+								className="w-full border border-gray-300 p-2 rounded bg-white"
 								value={metadata.mataKuliah}
-								onChange={(e) => setMetadata({ ...metadata, mataKuliah: e.target.value })}
+								onChange={(e) => setMetadata({ ...metadata, mataKuliah: e.target.value.toUpperCase() })}
 							/>
 						</div>
+
 						<div>
 							<label className="block text-sm font-medium mb-1">Kelompok</label>
 							<input
@@ -206,6 +262,7 @@ export default function ExamGeneratorForm() {
 								onChange={(e) => setMetadata({ ...metadata, kelompok: e.target.value })}
 							/>
 						</div>
+
 						<div>
 							<label className="block text-sm font-medium mb-1">Hari / Tanggal</label>
 							<input
@@ -219,6 +276,7 @@ export default function ExamGeneratorForm() {
 								<p className="text-xs text-green-600 mt-1">Preview: {formatTanggalIndonesia(metadata.tanggalUjian)}</p>
 							)}
 						</div>
+
 						<div>
 							<label className="block text-sm font-medium mb-1">Waktu Ujian</label>
 							<select
@@ -246,16 +304,19 @@ export default function ExamGeneratorForm() {
 								</optgroup>
 							</select>
 						</div>
+
 						<div>
 							<label className="block text-sm font-medium mb-1">Dosen Pengampu</label>
 							<input
 								type="text"
-								placeholder="Nama Dosen, S.T., M.T."
-								className="w-full border border-gray-300 p-2 rounded"
+								list="list-dosen"
+								placeholder="Ketik untuk mencari nama dosen..."
+								className="w-full border border-gray-300 p-2 rounded bg-white"
 								value={metadata.dosenPengampu}
 								onChange={(e) => setMetadata({ ...metadata, dosenPengampu: e.target.value })}
 							/>
 						</div>
+
 						<div>
 							<label className="block text-sm font-medium mb-1">Sifat Ujian</label>
 							<div className="flex gap-2">
@@ -282,7 +343,7 @@ export default function ExamGeneratorForm() {
 					</div>
 				</section>
 
-				{/* ── SECTION 2: CPMK ─────────────────────────────────────────── */}
+				{/* ── SECTION 2: DAFTAR CPMK ─────────────────────────────────────── */}
 				<section>
 					<h2 className="text-xl font-semibold mb-4 border-b border-gray-300 pb-2">Daftar CPMK</h2>
 					{cpmkList.map((cpmk, index) => (
@@ -305,13 +366,11 @@ export default function ExamGeneratorForm() {
 									setCpmkList(updated);
 								}}
 							/>
-							{/* Tombol Hapus CPMK hanya muncul jika CPMK lebih dari 1 */}
 							{cpmkList.length > 1 && (
 								<button
 									type="button"
 									onClick={() => handleRemoveCpmk(index)}
 									className="px-3 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200 transition font-semibold"
-									title="Hapus CPMK"
 								>
 									✕
 								</button>
@@ -327,12 +386,11 @@ export default function ExamGeneratorForm() {
 					</button>
 				</section>
 
-				{/* ── SECTION 3: SOAL & MAPPING ───────────────────────────────── */}
+				{/* ── SECTION 3: SOAL & MAPPING ──────────────────────────────────── */}
 				<section>
 					<h2 className="text-xl font-semibold mb-4 border-b border-gray-300 pb-2">Daftar Soal &amp; Mapping</h2>
 					{soalList.map((soal, index) => (
 						<div key={index} className="border border-gray-300 p-4 rounded mb-6 bg-gray-50 relative">
-							{/* Tombol Hapus Soal */}
 							<div className="flex justify-between items-center mb-3 border-b border-gray-200 pb-2">
 								<h3 className="font-bold text-lg text-blue-900">Soal No. {soal.nomorSoal}</h3>
 								{soalList.length > 1 && (
@@ -347,7 +405,11 @@ export default function ExamGeneratorForm() {
 							</div>
 
 							<div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-								<div>
+								<div
+									className={
+										metadata.programStudi === "Teknik Elektro" ? "col-span-1 md:col-span-1" : "col-span-1 md:col-span-2"
+									}
+								>
 									<label className="block text-sm font-medium mb-1">Bentuk Soal</label>
 									<select
 										required
@@ -364,42 +426,27 @@ export default function ExamGeneratorForm() {
 										<option value="Uraian">Uraian</option>
 									</select>
 								</div>
-								<div>
-									<label className="block text-sm font-medium mb-1">Pilih Induk CPMK</label>
-									<select
-										required
-										className="w-full border border-gray-300 p-2 rounded bg-white"
-										value={soal.pemetaanCpmk.cpmk}
-										onChange={(e) => {
-											const updated = [...soalList];
-											updated[index].pemetaanCpmk.cpmk = e.target.value;
-											setSoalList(updated);
-										}}
-									>
-										<option value="">-- Pilih CPMK --</option>
-										{cpmkList.map((c, i) => (
-											<option key={i} value={c.id.replace("CPMK ", "")}>
-												{c.id}
-											</option>
-										))}
-									</select>
-								</div>
-								<div>
-									<label className="block text-sm font-medium mb-1">ID Sub-CPMK</label>
-									<input
-										type="text"
-										required
-										placeholder="Contoh: 1,2"
-										className="w-full border border-gray-300 p-2 rounded bg-white"
-										value={soal.pemetaanCpmk.subCpmk}
-										onChange={(e) => {
-											const updated = [...soalList];
-											updated[index].pemetaanCpmk.subCpmk = e.target.value;
-											setSoalList(updated);
-										}}
-									/>
-								</div>
-								<div>
+
+								{/* Khusus Elektro: Butuh input ID Sub-CPMK */}
+								{metadata.programStudi === "Teknik Elektro" && (
+									<div className="col-span-1 md:col-span-2">
+										<label className="block text-sm font-medium mb-1">ID Sub-CPMK</label>
+										<input
+											type="text"
+											required
+											placeholder="Contoh: 1, 2"
+											className="w-full border border-gray-300 p-2 rounded bg-white"
+											value={soal.pemetaanCpmk.subCpmk}
+											onChange={(e) => {
+												const updated = [...soalList];
+												updated[index].pemetaanCpmk.subCpmk = e.target.value;
+												setSoalList(updated);
+											}}
+										/>
+									</div>
+								)}
+
+								<div className="col-span-2 md:col-span-1">
 									<label className="block text-sm font-medium mb-1">Bobot (%)</label>
 									<input
 										type="number"
@@ -414,6 +461,66 @@ export default function ExamGeneratorForm() {
 											setSoalList(updated);
 										}}
 									/>
+								</div>
+							</div>
+
+							{/* CHECKBOXES UNTUK CPMK (BERLAKU UNTUK SEMUA PRODI) */}
+							<div className="mb-4">
+								<label className="block text-sm font-medium mb-1">
+									Kaitan dengan CPMK <span className="text-gray-500 font-normal">(Bisa pilih lebih dari satu)</span>
+								</label>
+								<div className="flex flex-wrap gap-4 mt-2">
+									{cpmkList.map((c, i) => {
+										const isElektro = metadata.programStudi === "Teknik Elektro";
+										const cpmkVal = c.id.replace("CPMK ", "");
+
+										// Cek apakah CPMK ini sedang dipilih
+										const isChecked = isElektro
+											? soal.pemetaanCpmk.cpmk
+												? soal.pemetaanCpmk.cpmk.split(", ").includes(cpmkVal)
+												: false
+											: soal.pemetaanCpmkIndustri.includes(c.id);
+
+										return (
+											<label
+												key={i}
+												className="flex items-center gap-2 cursor-pointer bg-white border border-gray-300 px-2 py-1 rounded hover:bg-blue-50"
+											>
+												<input
+													type="checkbox"
+													className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+													checked={isChecked}
+													onChange={(e) => {
+														const updated = [...soalList];
+
+														if (isElektro) {
+															let currentArr = updated[index].pemetaanCpmk.cpmk
+																? updated[index].pemetaanCpmk.cpmk.split(", ")
+																: [];
+															if (e.target.checked) {
+																if (!currentArr.includes(cpmkVal)) currentArr.push(cpmkVal);
+															} else {
+																currentArr = currentArr.filter((v) => v !== cpmkVal);
+															}
+															// Urutkan angka agar tampilannya di PDF tetap rapi (1, 2, 3)
+															currentArr.sort((a, b) => parseInt(a) - parseInt(b));
+															updated[index].pemetaanCpmk.cpmk = currentArr.join(", ");
+														} else {
+															if (e.target.checked) {
+																updated[index].pemetaanCpmkIndustri.push(c.id);
+															} else {
+																updated[index].pemetaanCpmkIndustri = updated[index].pemetaanCpmkIndustri.filter(
+																	(id) => id !== c.id,
+																);
+															}
+														}
+														setSoalList(updated);
+													}}
+												/>
+												<span className="text-sm font-semibold">{c.id}</span>
+											</label>
+										);
+									})}
 								</div>
 							</div>
 
@@ -433,6 +540,7 @@ export default function ExamGeneratorForm() {
 								/>
 							</div>
 
+							{/* KEMBALI MENGGUNAKAN TEXTAREA BIASA */}
 							<div className="mb-4">
 								<label className="block text-sm font-medium mb-1">Teks Pertanyaan</label>
 								<textarea
@@ -471,7 +579,7 @@ export default function ExamGeneratorForm() {
 					</button>
 				</section>
 
-				{/* ── SECTION 4: PENGESAHAN ────────────────────────────────────── */}
+				{/* ── SECTION 4: PENGESAHAN ──────────────────────────────────────── */}
 				<section>
 					<h2 className="text-xl font-semibold mb-4 border-b border-gray-300 pb-2">Pengesahan</h2>
 					<div className="grid grid-cols-2 gap-4">
@@ -480,14 +588,12 @@ export default function ExamGeneratorForm() {
 							<input
 								type="text"
 								required
-								placeholder="Nama, S.T., M.T."
-								className="w-full border border-gray-300 p-2 rounded"
+								list="list-dosen"
+								placeholder="Ketik untuk mencari nama koordinator..."
+								className="w-full border border-gray-300 p-2 rounded bg-white"
 								value={pengesahan.koordinatorMk.nama}
 								onChange={(e) =>
-									setPengesahan({
-										...pengesahan,
-										koordinatorMk: { ...pengesahan.koordinatorMk, nama: e.target.value },
-									})
+									setPengesahan({ ...pengesahan, koordinatorMk: { ...pengesahan.koordinatorMk, nama: e.target.value } })
 								}
 							/>
 						</div>
@@ -511,13 +617,10 @@ export default function ExamGeneratorForm() {
 							<input
 								type="text"
 								required
-								className="w-full border border-gray-300 p-2 rounded"
+								className="w-full border border-gray-300 p-2 rounded select-none"
 								value={pengesahan.kaprogdi.nama}
 								onChange={(e) =>
-									setPengesahan({
-										...pengesahan,
-										kaprogdi: { ...pengesahan.kaprogdi, nama: e.target.value },
-									})
+									setPengesahan({ ...pengesahan, kaprogdi: { ...pengesahan.kaprogdi, nama: e.target.value } })
 								}
 							/>
 						</div>
@@ -529,17 +632,13 @@ export default function ExamGeneratorForm() {
 								className="w-full border border-gray-300 p-2 rounded bg-white"
 								value={pengesahan.kaprogdi.tanggal}
 								onChange={(e) =>
-									setPengesahan({
-										...pengesahan,
-										kaprogdi: { ...pengesahan.kaprogdi, tanggal: e.target.value },
-									})
+									setPengesahan({ ...pengesahan, kaprogdi: { ...pengesahan.kaprogdi, tanggal: e.target.value } })
 								}
 							/>
 						</div>
 					</div>
 				</section>
 
-				{/* ── SUBMIT ──────────────────────────────────────────────────── */}
 				<button
 					type="submit"
 					disabled={isGenerating}

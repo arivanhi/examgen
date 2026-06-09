@@ -10,6 +10,24 @@ import { htmlTemplateQuestions, htmlPengesahanStamp, htmlParafStamp } from "../.
 
 const MM = 2.8346; // Pengali konversi milimeter ke pixel (points)
 
+// ─── HELPER BARU: Menunggu MathJax selesai merender LaTeX ───────────────
+async function renderHtml(browser: any, html: string) {
+	const page = await browser.newPage();
+
+	// Gunakan networkidle0 agar script MathJax dari CDN selesai di-download
+	await page.setContent(html, { waitUntil: "networkidle0", timeout: 30_000 });
+
+	// Paksa Puppeteer menunggu hingga MathJax (jika ada) selesai merender rumus
+	await page.evaluate(async () => {
+		if ((window as any).MathJax && (window as any).MathJax.startup) {
+			await (window as any).MathJax.startup.promise;
+		}
+	});
+
+	return page;
+}
+// ────────────────────────────────────────────────────────────────────────
+
 export async function POST(request: Request) {
 	const browser = await puppeteer.launch({
 		headless: true,
@@ -40,9 +58,8 @@ export async function POST(request: Request) {
 		});
 		await page1.close();
 
-		// 2. Generate PDF Questions Utama (Margin bawah super lega: 55mm)
-		const page2 = await browser.newPage();
-		await page2.setContent(htmlTemplateQuestions(data), { waitUntil: "load" });
+		// 2. Generate PDF Questions Utama (Menggunakan Helper MathJax)
+		const page2 = await renderHtml(browser, htmlTemplateQuestions(data));
 		const rawQuestionsBuffer = await page2.pdf({
 			width: "215mm",
 			height: "330mm",
