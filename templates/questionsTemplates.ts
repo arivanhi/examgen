@@ -196,7 +196,7 @@ export function htmlPengesahanStamp(data: any): string {
       </td>
       <td width="50%">
         <table class="inner-pen">
-          <tr><td width="30%">Disahkan oleh</td><td width="5%">:</td><td>Kaprogdi Teknik Elektro</td></tr>
+          <tr><td width="30%">Disahkan oleh</td><td width="5%">:</td><td>Kaprogdi ${data.metadata.programStudi}</td></tr>
           <tr><td>Nama</td><td>:</td><td>${data.pengesahan.kaprogdi.nama}</td></tr>
           <tr><td>Tanggal</td><td>:</td><td>${data.pengesahan.kaprogdi.tanggal}</td></tr>
           <tr><td class="sign-row">Tanda tangan</td><td>:</td><td></td></tr>
