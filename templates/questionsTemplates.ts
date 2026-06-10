@@ -6,7 +6,6 @@ export function htmlTemplateQuestions(data: any): string {
 		? data.metadata.dosenPengampu.join(", ")
 		: data.metadata.dosenPengampu;
 
-	// Deteksi logoBase64 hasil inject dari route.ts
 	const logoSrc = data.logoBase64 || "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
 	return `<!DOCTYPE html>
@@ -41,26 +40,28 @@ export function htmlTemplateQuestions(data: any): string {
     
     .instruksi { font-weight: bold; text-decoration: underline; margin: 10px 0 15px 0; font-size: 11pt; }
     .soal-item { margin-bottom: 20px; page-break-inside: avoid; }
-    .soal-item table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    .soal-num { width: 25px; vertical-align: top; }
     
-    .soal-body { vertical-align: top; text-align: justify; word-break: break-word; overflow-wrap: break-word; }
-    .teks-soal { white-space: pre-wrap; }
+    .layout-tabel { width: 100%; border-collapse: collapse; table-layout: fixed; border: none; }
+    .layout-tabel td { border: none; padding: 0; }
     
-    /* PERBAIKAN UKURAN GAMBAR: Maksimal 45% lebar, dan dibatasi tingginya agar tidak menghabiskan kertas */
-    .soal-body img { 
+    /* FIX ALIGNMENT */
+    .soal-num { width: 25px; vertical-align: top; padding-top: 0; margin: 0; }
+    .soal-body { vertical-align: top; text-align: justify; word-break: break-word; overflow-wrap: break-word; padding-top: 0; margin: 0; }
+    
+    .teks-soal { white-space: pre-wrap; margin: 0 0 8px 0; padding: 0; }
+    
+    .img-container { margin: 0 0 8px 0; text-align: center; }
+    .uploaded-img { 
       max-width: 45%; 
       max-height: 250px; 
       object-fit: contain; 
-      margin-bottom: 8px; 
       display: block; 
-      margin: auto;
+      margin: 0 auto;
     }
   </style>
 </head>
 <body>
   <table class="main-layout">
-    
     <thead>
       <tr>
         <th style="font-weight: normal; text-align: left; padding-bottom: 5px;">
@@ -82,7 +83,6 @@ export function htmlTemplateQuestions(data: any): string {
         </th>
       </tr>
     </thead>
-
     <tbody>
       <tr>
         <td>
@@ -111,25 +111,48 @@ export function htmlTemplateQuestions(data: any): string {
         </td>
       </tr>
       ${data.soalList
-				.map(
-					(soal: any) => `
+				.map((soal: any) => {
+					const imgs = soal.kontenSoal.gambarPendukung || [];
+					const hasImg = imgs.length > 0;
+					const imgHtml = hasImg
+						? imgs
+								.map((img: string) => `<img src="${img}" class="uploaded-img" alt="Gambar soal ${soal.nomorSoal}" />`)
+								.join("")
+						: "";
+
+					// TRIM() untuk membuang spasi/enter kosong di awal teks yang bikin teks turun
+					let teks = (soal.kontenSoal.teksPertanyaan || "").trim();
+					let finalBody = "";
+
+					if (soal.posisiGambar === "Kustom" && teks.includes("[GAMBAR]")) {
+						const imgBlock = hasImg ? `<div class="img-container">${imgHtml}</div>` : "";
+						teks = teks.replace("[GAMBAR]", imgBlock);
+						finalBody = `<div class="teks-soal">${teks}</div>`;
+					} else if (soal.posisiGambar === "Bawah") {
+						finalBody = `<div class="teks-soal">${teks}</div>`;
+						if (hasImg) finalBody += `<div class="img-container">${imgHtml}</div>`;
+					} else {
+						if (hasImg) finalBody += `<div class="img-container">${imgHtml}</div>`;
+						finalBody += `<div class="teks-soal">${teks}</div>`;
+					}
+
+					return `
         <tr>
           <td>
             <div class="soal-item">
-              <table>
+              <table class="layout-tabel">
                 <tr>
                   <td class="soal-num">${soal.nomorSoal}.</td>
                   <td class="soal-body">
-                    ${soal.kontenSoal.gambarPendukung.map((img: string) => `<img src="${img}" alt="Gambar soal ${soal.nomorSoal}" />`).join("")}
-                    <div class="teks-soal">${soal.kontenSoal.teksPertanyaan} <strong>(Bobot: ${soal.bobotPersen}%)</strong></div>
+                    ${finalBody}
                   </td>
                 </tr>
               </table>
             </div>
           </td>
         </tr>
-      `,
-				)
+        `;
+				})
 				.join("")}
     </tbody>
   </table>
@@ -145,7 +168,6 @@ export function htmlPengesahanStamp(data: any): string {
   <meta charset="UTF-8">
   <style>
     * { box-sizing: border-box; }
-    /* Padding 2px memastikan garis tabel tidak dimakan kanvas PDF */
     body { font-family: 'Times New Roman', Times, serif; font-size: 9.5pt; margin: 0; padding: 2px; }
     .pengesahan-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
     .pengesahan-table td { border: 1px solid #000; padding: 0; vertical-align: top; }

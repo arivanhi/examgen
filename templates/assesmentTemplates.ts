@@ -15,7 +15,7 @@ export function htmlTemplateAssessment(data: any): string {
 
 	const tabelMappingHtml = isElektro
 		? `
-  <p class="tabel-label">Tabel 2. Mapping Soal – CPMK – Sub CPMK:</p>
+  <p class="tabel-label"><strong>Tabel 2. Mapping Soal – CPMK – Sub CPMK:</strong></p>
   <table class="table-bordered" style="font-size:9pt;">
     <thead>
       <tr>
@@ -56,7 +56,7 @@ export function htmlTemplateAssessment(data: any): string {
   </table>
   `
 		: `
-  <p class="tabel-label">Tabel 2. Mapping Soal :</p>
+  <p class="tabel-label"><strong>Tabel 2. Mapping Soal :</strong></p>
   <table class="table-bordered" style="font-size:9pt;">
     <thead>
       <tr>
@@ -250,8 +250,8 @@ export function htmlTemplateAssessment(data: any): string {
   <h4>Rancangan Assesment</h4>
 
   <p class="tabel-label">
-    Tabel 1. Capaian Pembelajaran Mata Kuliah (CPMK)
-    <strong>${data.metadata.mataKuliah}</strong> adalah sebagai berikut:
+    <strong>Tabel 1. Capaian Pembelajaran Mata Kuliah (CPMK)
+    ${data.metadata.mataKuliah} adalah sebagai berikut:</strong>
   </p>
 
   <table class="table-bordered">
