@@ -3,9 +3,11 @@
 // Header universitas, identitas ujian, Tabel CPMK, Tabel Mapping, footer paraf kecil
 
 export function htmlTemplateAssessment(data: any): string {
-	const dosen = Array.isArray(data.metadata.dosenPengampu)
-		? data.metadata.dosenPengampu.join(", ")
-		: data.metadata.dosenPengampu;
+	// Membersihkan array dosen dari input yang tidak sengaja kosong
+	const dosenArray = Array.isArray(data.metadata.dosenPengampu)
+		? data.metadata.dosenPengampu
+		: [data.metadata.dosenPengampu];
+	const dosen = dosenArray.filter((d: string) => d && d.trim() !== "").join(", ") || "-";
 
 	// Deteksi logoBase64 hasil inject dari route.ts
 	const logoSrc = data.logoBase64 || "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
@@ -33,17 +35,17 @@ export function htmlTemplateAssessment(data: any): string {
         <tr>
           <td style="text-align:center;">${s.nomorSoal}.</td>
           <td style="text-align:center;">${s.bentukSoal}</td>
-          <td>${s.uraianMateri}</td>
+          <td style="white-space: pre-wrap;">${s.uraianMateri || "-"}</td>
           <td style="text-align:center; white-space:nowrap;">SOAL<br/>No. ${s.nomorSoal}</td>
           <td style="padding:0;">
             <table style="width:100%; height:100%; border-collapse:collapse; border:none; margin:0;">
               <tr>
                 <td style="border-bottom:1px solid #000; border-right:1px solid #000; padding:5px 8px; width:45%;"><strong>CPMK:</strong></td>
-                <td style="border-bottom:1px solid #000; padding:5px 8px; text-align:center;"><strong>${s.pemetaanCpmk.cpmk}</strong></td>
+                <td style="border-bottom:1px solid #000; padding:5px 8px; text-align:center;"><strong>${s.pemetaanCpmk?.cpmk || "-"}</strong></td>
               </tr>
               <tr>
                 <td style="border-right:1px solid #000; padding:5px 8px;"><strong>SCPMK:</strong></td>
-                <td style="padding:5px 8px; text-align:center;"><strong>${s.pemetaanCpmk.subCpmk}</strong></td>
+                <td style="padding:5px 8px; text-align:center;"><strong>${s.pemetaanCpmk?.subCpmk || "-"}</strong></td>
               </tr>
             </table>
           </td>
@@ -83,7 +85,7 @@ export function htmlTemplateAssessment(data: any): string {
         <tr>
           <td style="text-align:center;">${s.nomorSoal}.</td>
           <td style="text-align:center;">${s.bentukSoal}</td>
-          <td>${s.uraianMateri}</td>
+          <td style="white-space: pre-wrap;">${s.uraianMateri || "-"}</td>
           <td style="text-align:center; white-space:nowrap;">Soal<br/>No. ${s.nomorSoal}</td>
           ${data.cpmkList
 						.map(
@@ -108,6 +110,15 @@ export function htmlTemplateAssessment(data: any): string {
 <html lang="id">
 <head>
   <meta charset="UTF-8">
+
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$']], displayMath: [['$$', '$$']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
   <style>
     @page {
       size: 215mm 330mm; /* Kertas F4 */
@@ -126,7 +137,7 @@ export function htmlTemplateAssessment(data: any): string {
       position: relative;
     }
 
-    /* ─── Footer Paraf (pojok kanan bawah, muncul di setiap halaman) ─── */
+    /* ─── Footer Paraf ─── */
     .paraf-fixed {
       position: fixed;
       bottom: 0; 
@@ -176,7 +187,10 @@ export function htmlTemplateAssessment(data: any): string {
       font-size: 10pt;
       margin-bottom: 15px;
     }
-    .meta-table td { padding: 4px 8px; vertical-align: top; }
+    .meta-table td { 
+      padding: 3px 8px; /* Padding atas-bawah diperkecil */
+      vertical-align: top; 
+      line-height: 1.1; /* Spasi dirapatkan menjadi single/1.1 */}
     .meta-divider { border-left: 1px solid #000; }
 
     /* ─── Tabel Konten ─── */
@@ -212,12 +226,12 @@ export function htmlTemplateAssessment(data: any): string {
           alt="Logo UDINUS"
         />
       </td>
-      <td style="width:65%;">
+      <td style="width:55%;">
         <p class="header-fak">FAKULTAS TEKNIK</p>
         <p class="header-univ">UNIVERSITAS DIAN NUSWANTORO</p>
         <p class="header-addr">Jl. Nakula I No.1 Gedung I. Telp. (024) 3555628 Semarang 50131</p>
       </td>
-      <td style="width:20%; text-align:right; font-size:9pt; vertical-align:top;">
+      <td style="width:30%; text-align:right; font-size:9pt; vertical-align:top;">
         FM-UDINUS-BM-04-15/R1
       </td>
     </tr>

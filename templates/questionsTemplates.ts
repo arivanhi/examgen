@@ -2,9 +2,11 @@
 
 // 1. Template Utama: Hanya Header dan Soal
 export function htmlTemplateQuestions(data: any): string {
-	const dosen = Array.isArray(data.metadata.dosenPengampu)
-		? data.metadata.dosenPengampu.join(", ")
-		: data.metadata.dosenPengampu;
+	// FITUR BARU: Filter array dosen agar input yang kosong tidak ikut tercetak (menghindari hasil seperti "Budi, , Joko")
+	const dosenArray = Array.isArray(data.metadata.dosenPengampu)
+		? data.metadata.dosenPengampu
+		: [data.metadata.dosenPengampu];
+	const dosen = dosenArray.filter((d: string) => d && d.trim() !== "").join(", ") || "-";
 
 	const logoSrc = data.logoBase64 || "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
@@ -35,7 +37,7 @@ export function htmlTemplateQuestions(data: any): string {
     
     .exam-title { text-align: center; font-weight: bold; margin-bottom: 15px; font-size: 12pt; line-height: 1.3; }
     .meta-table { width: 100%; border: 1px solid #000; border-collapse: collapse; font-size: 10pt; margin-bottom: 15px; }
-    .meta-table td { padding: 4px 8px; vertical-align: top; }
+    .meta-table td { padding: 3px 8px; vertical-align: top; line-height: 1.1; }
     .meta-divider { border-left: 1px solid #000; }
     
     .instruksi { font-weight: bold; text-decoration: underline; margin: 10px 0 15px 0; font-size: 11pt; }
@@ -70,12 +72,12 @@ export function htmlTemplateQuestions(data: any): string {
               <td style="width:15%; text-align:center;">
                 <img src="${logoSrc}" class="logo" alt="Logo UDINUS" />
               </td>
-              <td style="width:65%;">
+              <td style="width:55%;">
                 <p class="header-fak">FAKULTAS TEKNIK</p>
                 <p class="header-univ">UNIVERSITAS DIAN NUSWANTORO</p>
                 <p class="header-addr">Jl. Nakula I No.1 Gedung I. Telp. (024) 3555628 Semarang 50131</p>
               </td>
-              <td style="width:20%; text-align:right; font-size:9pt; vertical-align:top;">
+              <td style="width:30%; text-align:right; font-size:9pt; vertical-align:top;">
                 FM-UDINUS-BM-04-15/R1
               </td>
             </tr>
@@ -134,6 +136,11 @@ export function htmlTemplateQuestions(data: any): string {
 					} else {
 						if (hasImg) finalBody += `<div class="img-container">${imgHtml}</div>`;
 						finalBody += `<div class="teks-soal">${teks}</div>`;
+					}
+
+					// FITUR BARU: LOGIKA CETAK BOBOT (Akan tampil miring di kanan bawah teks soal jika diaktifkan)
+					if (soal.tampilBobot) {
+						finalBody += `<div style="text-align: right; font-style: italic; font-size: 10.5pt; color: #000; margin-top: 5px;">(Bobot: ${soal.bobotPersen}%)</div>`;
 					}
 
 					return `

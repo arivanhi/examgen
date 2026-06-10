@@ -3,21 +3,6 @@
 import { useState, useEffect } from "react";
 import dbUjian from "../data/db_ujian.json";
 
-function downloadBase64Pdf(base64: string, filename: string) {
-	const binary = atob(base64);
-	const bytes = new Uint8Array(binary.length);
-	for (let i = 0; i < binary.length; i++) {
-		bytes[i] = binary.charCodeAt(i);
-	}
-	const blob = new Blob([bytes], { type: "application/pdf" });
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement("a");
-	a.href = url;
-	a.download = filename;
-	a.click();
-	setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 function formatTanggalIndonesia(dateString: string) {
 	if (!dateString) return "";
 	const date = new Date(dateString);
@@ -48,7 +33,7 @@ export default function ExamGeneratorForm() {
 		sifatUtama: "CLOSE BOOK",
 		sifatCatatan: "",
 		kelompok: "",
-		dosenPengampu: "",
+		dosenPengampu: [""],
 	});
 
 	const [cpmkList, setCpmkList] = useState([{ id: "CPMK 1", deskripsi: "" }]);
@@ -59,10 +44,11 @@ export default function ExamGeneratorForm() {
 			bentukSoal: "Essay",
 			uraianMateri: "",
 			bobotPersen: 0,
+			tampilBobot: true,
 			pemetaanCpmk: { subCpmk: "", cpmk: "" },
 			pemetaanCpmkIndustri: [] as string[],
 			kontenSoal: { teksPertanyaan: "", gambarPendukung: [] as string[] },
-			posisiGambar: "Atas", // Field Baru!
+			posisiGambar: "Atas",
 		},
 	]);
 
@@ -80,8 +66,18 @@ export default function ExamGeneratorForm() {
 		setPengesahan((prev) => ({ ...prev, kaprogdi: { ...prev.kaprogdi, nama: kaprogdiNama } }));
 	}, [metadata.programStudi]);
 
-	const handleAddCpmk = () => setCpmkList([...cpmkList, { id: `CPMK ${cpmkList.length + 1}`, deskripsi: "" }]);
+	const handleAddDosen = () => setMetadata({ ...metadata, dosenPengampu: [...metadata.dosenPengampu, ""] });
+	const handleRemoveDosen = (index: number) => {
+		const updated = metadata.dosenPengampu.filter((_, i) => i !== index);
+		setMetadata({ ...metadata, dosenPengampu: updated });
+	};
+	const handleChangeDosen = (index: number, value: string) => {
+		const updated = [...metadata.dosenPengampu];
+		updated[index] = value;
+		setMetadata({ ...metadata, dosenPengampu: updated });
+	};
 
+	const handleAddCpmk = () => setCpmkList([...cpmkList, { id: `CPMK ${cpmkList.length + 1}`, deskripsi: "" }]);
 	const handleRemoveCpmk = (i: number) => {
 		const updated = cpmkList.filter((_, idx) => idx !== i);
 		setCpmkList(updated.map((c, idx) => ({ ...c, id: `CPMK ${idx + 1}` })));
@@ -95,6 +91,7 @@ export default function ExamGeneratorForm() {
 				bentukSoal: "Essay",
 				uraianMateri: "",
 				bobotPersen: 0,
+				tampilBobot: true,
 				pemetaanCpmk: { subCpmk: "", cpmk: "" },
 				pemetaanCpmkIndustri: [],
 				kontenSoal: { teksPertanyaan: "", gambarPendukung: [] },
@@ -119,10 +116,51 @@ export default function ExamGeneratorForm() {
 		reader.readAsDataURL(file);
 	};
 
+	// ─── FITUR BARU: RESET FORM ───
+	const handleResetForm = () => {
+		const confirmReset = window.confirm("Apakah Anda yakin ingin mengosongkan semua isian form ini?");
+		if (!confirmReset) return;
+
+		// Kembalikan ke default bawaan
+		setMetadata({
+			programStudi: "Teknik Elektro",
+			mataKuliah: "",
+			tanggalUjian: "",
+			waktu: "08:00 - 08:30 (30 Menit)",
+			sifatUtama: "CLOSE BOOK",
+			sifatCatatan: "",
+			kelompok: "",
+			dosenPengampu: [""],
+		});
+
+		setCpmkList([{ id: "CPMK 1", deskripsi: "" }]);
+
+		setSoalList([
+			{
+				nomorSoal: 1,
+				bentukSoal: "Essay",
+				uraianMateri: "",
+				bobotPersen: 0,
+				tampilBobot: true,
+				pemetaanCpmk: { subCpmk: "", cpmk: "" },
+				pemetaanCpmkIndustri: [],
+				kontenSoal: { teksPertanyaan: "", gambarPendukung: [] },
+				posisiGambar: "Atas",
+			},
+		]);
+
+		setPengesahan({
+			koordinatorMk: { nama: "", tanggal: "" },
+			kaprogdi: { nama: "Dr. Ir. M. ARY HERYANTO, M.Eng., IPU., Asean.Eng.", tanggal: "" },
+		});
+
+		// Scroll kembali ke atas
+		window.scrollTo({ top: 0, behavior: "smooth" });
+	};
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setIsGenerating(true);
-
 		const formattedDate = formatTanggalIndonesia(metadata.tanggalUjian);
 		const formattedSifat = metadata.sifatCatatan
 			? `${metadata.sifatUtama} (${metadata.sifatCatatan})`
@@ -134,7 +172,7 @@ export default function ExamGeneratorForm() {
 				...metadata,
 				hariTanggal: formattedDate,
 				sifat: formattedSifat,
-				dosenPengampu: [metadata.dosenPengampu],
+				dosenPengampu: metadata.dosenPengampu,
 			},
 			cpmkList,
 			soalList,
@@ -147,40 +185,45 @@ export default function ExamGeneratorForm() {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(payload),
 			});
-
 			if (!response.ok) {
 				const err = await response.json();
 				throw new Error(err.error ?? "Gagal generate PDF");
 			}
-
 			const { assessmentPdf, questionsPdf } = await response.json();
 
-			// ─── PENTING: IMPORT JSZip & LAKUKAN ZIPPING ───
 			const JSZip = (await import("jszip")).default;
-			const zip = new JSZip();
-
 			const namaProdi = metadata.programStudi.replace(/\s+/g, "");
-			const namaDosen = metadata.dosenPengampu
-				? metadata.dosenPengampu.replace(/[^a-zA-Z0-9.\- ]/g, "").trim()
-				: "Tanpa_Nama";
 			const namaMatkul = metadata.mataKuliah ? metadata.mataKuliah.replace(/[^a-zA-Z0-9.\- ]/g, "").trim() : "Ujian";
 
-			// Buat folder berdasarkan nama dosen
-			const folderDosen = zip.folder(`${namaDosen}`);
+			let daftarDosen = metadata.dosenPengampu.filter((d) => d.trim() !== "");
+			if (daftarDosen.length === 0) daftarDosen = ["Tanpa_Nama"];
 
-			if (folderDosen) {
-				folderDosen.file(`${namaMatkul}_Assessment_${namaProdi}.pdf`, assessmentPdf, { base64: true });
-				folderDosen.file(`${namaMatkul}_Soal_${namaProdi}.pdf`, questionsPdf, { base64: true });
+			for (let i = 0; i < daftarDosen.length; i++) {
+				const namaDosen = daftarDosen[i].replace(/[^a-zA-Z0-9.\- ]/g, "").trim();
+				const zip = new JSZip();
+
+				const folderDosen = zip.folder(`${namaDosen}`);
+
+				if (folderDosen) {
+					folderDosen.file(`${namaMatkul}_Assessment_${namaProdi}.pdf`, assessmentPdf, { base64: true });
+					folderDosen.file(`${namaMatkul}_Soal_${namaProdi}.pdf`, questionsPdf, { base64: true });
+				}
+
+				const zipContent = await zip.generateAsync({ type: "blob" });
+				const url = URL.createObjectURL(zipContent);
+
+				const a = document.createElement("a");
+				a.href = url;
+				a.download = `${namaDosen}.zip`;
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+				URL.revokeObjectURL(url);
+
+				if (i < daftarDosen.length - 1) {
+					await new Promise((resolve) => setTimeout(resolve, 800));
+				}
 			}
-
-			// Generate dan Trigger Download ZIP
-			const zipContent = await zip.generateAsync({ type: "blob" });
-			const url = URL.createObjectURL(zipContent);
-			const a = document.createElement("a");
-			a.href = url;
-			a.download = `${namaDosen}.zip`;
-			a.click();
-			URL.revokeObjectURL(url);
 		} catch (error) {
 			console.error(error);
 			alert("Terjadi kesalahan: " + String(error));
@@ -287,6 +330,21 @@ export default function ExamGeneratorForm() {
 			<line x1="12" y1="15" x2="12" y2="3" />
 		</svg>
 	);
+	const IconTrash = () => (
+		<svg
+			viewBox="0 0 24 24"
+			width="16"
+			height="16"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="2.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			<polyline points="3 6 5 6 21 6"></polyline>
+			<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+		</svg>
+	);
 
 	return (
 		<>
@@ -352,87 +410,49 @@ export default function ExamGeneratorForm() {
                     overflow-y: auto;
                 }
 
-                .eg-panel {
-                    border-bottom: 1px solid #f1f5f9;
-                }
+                .eg-panel { border-bottom: 1px solid #f1f5f9; }
                 .eg-panel-header {
                     padding: 14px 20px;
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                    background: #fafafa;
-                    border-bottom: 1px solid #f1f5f9;
+                    display: flex; align-items: center; gap: 10px;
+                    background: #fafafa; border-bottom: 1px solid #f1f5f9;
                     cursor: default;
                 }
                 .eg-panel-icon {
-                    width: 26px; height: 26px;
-                    border-radius: 6px;
-                    background: #eff6ff;
-                    display: flex; align-items: center; justify-content: center;
-                    color: #2563eb;
-                    flex-shrink: 0;
+                    width: 26px; height: 26px; border-radius: 6px;
+                    background: #eff6ff; display: flex; align-items: center; justify-content: center;
+                    color: #2563eb; flex-shrink: 0;
                 }
                 .eg-panel-icon svg { width: 13px; height: 13px; }
-                .eg-panel-title {
-                    font-size: 12px;
-                    font-weight: 700;
-                    color: #334155;
-                    text-transform: uppercase;
-                    letter-spacing: 0.06em;
-                }
+                .eg-panel-title { font-size: 12px; font-weight: 700; color: #334155; text-transform: uppercase; letter-spacing: 0.06em; }
                 .eg-panel-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
 
                 .eg-field { display: flex; flex-direction: column; gap: 5px; }
-                .eg-field label {
-                    font-size: 11px;
-                    font-weight: 600;
-                    color: #64748b;
-                    text-transform: uppercase;
-                    letter-spacing: 0.06em;
+                .eg-field label { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; }
+                .eg-field input, .eg-field select, .eg-field textarea {
+                    width: 100%; border: 1px solid #e2e8f0; border-radius: 7px;
+                    padding: 8px 11px; font-size: 13.5px; color: #0f172a;
+                    background: #fff; outline: none; transition: border-color 0.15s, box-shadow 0.15s; font-family: inherit;
                 }
-                .eg-field input,
-                .eg-field select,
-                .eg-field textarea {
-                    width: 100%;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 7px;
-                    padding: 8px 11px;
-                    font-size: 13.5px;
-                    color: #0f172a;
-                    background: #fff;
-                    outline: none;
-                    transition: border-color 0.15s, box-shadow 0.15s;
-                    font-family: inherit;
-                }
-                .eg-field input:focus,
-                .eg-field select:focus,
-                .eg-field textarea:focus {
-                    border-color: #2563eb;
-                    box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+                .eg-field input:focus, .eg-field select:focus, .eg-field textarea:focus {
+                    border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
                 }
                 .eg-field textarea { resize: vertical; min-height: 100px; line-height: 1.55; }
                 .eg-hint { font-size: 11.5px; color: #94a3b8; }
                 .eg-hint.ok { color: #16a34a; }
 
                 .eg-prodi-sel {
-                    border-color: #bfdbfe !important;
-                    background: #eff6ff !important;
-                    color: #1d4ed8 !important;
-                    font-weight: 700 !important;
+                    border-color: #bfdbfe !important; background: #eff6ff !important;
+                    color: #1d4ed8 !important; font-weight: 700 !important;
                 }
 
                 .eg-g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
                 .eg-sifat { display: flex; gap: 8px; }
                 .eg-sifat select, .eg-sifat input { flex: 1; }
 
                 .eg-cpmk-row { display: flex; gap: 8px; align-items: center; }
                 .eg-cpmk-badge {
-                    width: 72px; flex-shrink: 0;
-                    background: #f1f5f9; border: 1px solid #e2e8f0;
-                    border-radius: 6px; padding: 7px 6px;
-                    font-size: 12px; font-weight: 700; color: #475569;
-                    text-align: center;
+                    width: 72px; flex-shrink: 0; background: #f1f5f9; border: 1px solid #e2e8f0;
+                    border-radius: 6px; padding: 7px 6px; font-size: 12px; font-weight: 700; color: #475569; text-align: center;
                 }
                 .eg-cpmk-row input {
                     flex: 1; border: 1px solid #e2e8f0; border-radius: 7px;
@@ -443,129 +463,95 @@ export default function ExamGeneratorForm() {
                 .eg-btn-remove {
                     width: 28px; height: 28px; flex-shrink: 0;
                     border-radius: 6px; border: none; cursor: pointer;
-                    background: #fef2f2; color: #dc2626;
-                    display: flex; align-items: center; justify-content: center;
+                    background: #fef2f2; color: #dc2626; display: flex; align-items: center; justify-content: center;
                     transition: background 0.15s;
                 }
                 .eg-btn-remove:hover { background: #fee2e2; }
                 .eg-btn-add {
                     display: inline-flex; align-items: center; gap: 5px;
                     font-size: 13px; font-weight: 600; color: #2563eb;
-                    background: none; border: none; cursor: pointer;
-                    padding: 4px 0; font-family: inherit;
-                    transition: color 0.15s;
+                    background: none; border: none; cursor: pointer; padding: 4px 0; font-family: inherit; transition: color 0.15s;
                 }
                 .eg-btn-add:hover { color: #1e40af; }
 
-                .eg-soal-card {
-                    background: #fff;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 12px;
-                    margin-bottom: 16px;
-                    overflow: hidden;
-                }
+                .eg-soal-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 16px; overflow: hidden; }
                 .eg-soal-head {
-                    padding: 12px 18px;
-                    background: #f8fafc;
-                    border-bottom: 1px solid #f1f5f9;
+                    padding: 12px 18px; background: #f8fafc; border-bottom: 1px solid #f1f5f9;
                     display: flex; align-items: center; justify-content: space-between;
                 }
                 .eg-soal-label {
-                    font-size: 12px; font-weight: 700; color: #64748b;
-                    text-transform: uppercase; letter-spacing: 0.07em;
+                    font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.07em;
                     display: flex; align-items: center; gap: 8px;
                 }
                 .eg-soal-num-badge {
-                    background: #eff6ff; color: #1d4ed8;
-                    border-radius: 5px; padding: 2px 9px;
-                    font-size: 12px; font-weight: 700;
+                    background: #eff6ff; color: #1d4ed8; border-radius: 5px; padding: 2px 9px; font-size: 12px; font-weight: 700;
                 }
                 .eg-soal-body { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
 
                 .eg-row-g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
                 .eg-row-g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
-                .eg-soal-body .eg-field input,
-                .eg-soal-body .eg-field select,
-                .eg-soal-body .eg-field textarea {
-                    font-size: 13.5px;
-                }
+                .eg-soal-body .eg-field input, .eg-soal-body .eg-field select, .eg-soal-body .eg-field textarea { font-size: 13.5px; }
 
                 .eg-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
                 .eg-chip {
-                    display: inline-flex; align-items: center; gap: 7px;
-                    padding: 6px 12px; border-radius: 7px;
-                    border: 1px solid #e2e8f0; background: #fff;
-                    cursor: pointer; font-size: 13px; font-weight: 600; color: #374151;
-                    transition: all 0.15s;
+                    display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 7px;
+                    border: 1px solid #e2e8f0; background: #fff; cursor: pointer; font-size: 13px; font-weight: 600; color: #374151; transition: all 0.15s;
                 }
                 .eg-chip:hover { border-color: #93c5fd; background: #eff6ff; }
                 .eg-chip.on { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
-                .eg-chip input[type="checkbox"] {
-                    width: 15px; height: 15px; margin: 0;
-                    accent-color: #2563eb; cursor: pointer; flex-shrink: 0;
-                }
+                .eg-chip input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: #2563eb; cursor: pointer; flex-shrink: 0; }
 
                 .eg-upload {
-                    display: block; width: 100%;
-                    border: 1.5px dashed #cbd5e1; border-radius: 7px;
-                    padding: 10px 14px; font-size: 13px; color: #64748b;
-                    background: #f8fafc; cursor: pointer; font-family: inherit;
-                    transition: all 0.15s;
+                    display: block; width: 100%; border: 1.5px dashed #cbd5e1; border-radius: 7px; padding: 10px 14px; font-size: 13px;
+                    color: #64748b; background: #f8fafc; cursor: pointer; font-family: inherit; transition: all 0.15s;
                 }
                 .eg-upload:hover { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
                 .eg-ok-badge {
-                    display: inline-flex; align-items: center; gap: 5px;
-                    font-size: 12px; font-weight: 600; color: #16a34a;
-                    background: #f0fdf4; border: 1px solid #bbf7d0;
-                    border-radius: 5px; padding: 4px 10px; margin-top: 6px;
+                    display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: #16a34a;
+                    background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 5px; padding: 4px 10px; margin-top: 6px;
                 }
 
                 .eg-add-soal {
-                    display: flex; align-items: center; justify-content: center; gap: 8px;
-                    width: 100%; padding: 13px;
-                    border: 1.5px dashed #cbd5e1; border-radius: 12px;
-                    background: #fff; color: #2563eb;
-                    font-size: 14px; font-weight: 600; font-family: inherit;
-                    cursor: pointer; transition: all 0.15s;
+                    display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px;
+                    border: 1.5px dashed #cbd5e1; border-radius: 12px; background: #fff; color: #2563eb; font-size: 14px; font-weight: 600;
+                    font-family: inherit; cursor: pointer; transition: all 0.15s;
                 }
                 .eg-add-soal:hover { border-color: #2563eb; background: #eff6ff; }
 
-                .eg-right-header {
-                    display: flex; align-items: center; gap: 10px;
-                    margin-bottom: 20px;
-                }
+                .eg-right-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
                 .eg-right-header-icon {
-                    width: 34px; height: 34px;
-                    border-radius: 9px; background: #2563eb;
-                    display: flex; align-items: center; justify-content: center;
-                    color: #fff; flex-shrink: 0;
+                    width: 34px; height: 34px; border-radius: 9px; background: #2563eb;
+                    display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0;
                 }
                 .eg-right-header-icon svg { width: 17px; height: 17px; }
                 .eg-right-header-title { font-size: 15px; font-weight: 700; color: #0f172a; }
                 .eg-right-header-sub { font-size: 13px; color: #94a3b8; }
 
+                /* ── SUBMIT BAR DENGAN 2 TOMBOL ── */
                 .eg-submit-bar {
-                    position: fixed; bottom: 0; left: 0; right: 0;
-                    background: rgba(255,255,255,0.96);
-                    backdrop-filter: blur(10px);
-                    border-top: 1px solid #e2e8f0;
-                    padding: 14px 28px;
-                    display: flex; justify-content: flex-end;
-                    z-index: 60;
+                    position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.96); backdrop-filter: blur(10px);
+                    border-top: 1px solid #e2e8f0; padding: 14px 28px; 
+                    display: flex; justify-content: flex-end; gap: 12px; z-index: 60;
                 }
+                
+                .eg-reset-btn {
+                    background: #f8fafc; color: #475569; border: 1px solid #cbd5e1; border-radius: 9px; 
+                    padding: 12px 24px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; 
+                    display: flex; align-items: center; gap: 9px; transition: all 0.15s;
+                }
+                .eg-reset-btn:hover:not(:disabled) { background: #fee2e2; color: #dc2626; border-color: #f87171; }
+                .eg-reset-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
                 .eg-submit-btn {
-                    background: #2563eb; color: #fff;
-                    border: none; border-radius: 9px;
-                    padding: 12px 32px;
-                    font-size: 14px; font-weight: 700;
-                    cursor: pointer; font-family: inherit;
-                    display: flex; align-items: center; gap: 9px;
-                    transition: background 0.15s;
+                    background: #2563eb; color: #fff; border: none; border-radius: 9px; 
+                    padding: 12px 32px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; 
+                    display: flex; align-items: center; gap: 9px; transition: background 0.15s; min-width: 280px; justify-content: center;
                 }
                 .eg-submit-btn:hover:not(:disabled) { background: #1d4ed8; }
                 .eg-submit-btn:disabled { opacity: 0.55; cursor: not-allowed; }
                 .eg-submit-btn svg { width: 17px; height: 17px; }
+                
                 @keyframes spin { to { transform: rotate(360deg); } }
                 .eg-spin { animation: spin 0.9s linear infinite; }
 
@@ -577,8 +563,8 @@ export default function ExamGeneratorForm() {
                 }
                 @media (max-width: 640px) {
                     .eg-g2, .eg-row-g3, .eg-row-g2 { grid-template-columns: 1fr; }
-                    .eg-submit-btn { width: 100%; justify-content: center; }
-                    .eg-submit-bar { padding: 12px 16px; }
+                    .eg-submit-bar { flex-direction: column-reverse; padding: 12px 16px; gap: 8px; }
+                    .eg-submit-btn, .eg-reset-btn { width: 100%; justify-content: center; min-width: unset; }
                 }
             `,
 				}}
@@ -622,7 +608,6 @@ export default function ExamGeneratorForm() {
 					<div className="eg-layout">
 						{/* PANEL KIRI */}
 						<div className="eg-left">
-							{/* 1. IDENTITAS UJIAN */}
 							<div className="eg-panel">
 								<div className="eg-panel-header">
 									<div className="eg-panel-icon">
@@ -698,16 +683,39 @@ export default function ExamGeneratorForm() {
 											)}
 										</div>
 									</div>
+
 									<div className="eg-field">
 										<label>Dosen Pengampu</label>
-										<input
-											type="text"
-											list="list-dsn"
-											placeholder="Cari nama dosen..."
-											value={metadata.dosenPengampu}
-											onChange={(e) => setMetadata({ ...metadata, dosenPengampu: e.target.value })}
-										/>
+										<div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+											{metadata.dosenPengampu.map((dsn, idx) => (
+												<div key={idx} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+													<input
+														type="text"
+														list="list-dsn"
+														required
+														placeholder="Cari nama dosen..."
+														value={dsn}
+														onChange={(e) => handleChangeDosen(idx, e.target.value)}
+														style={{ flex: 1 }}
+													/>
+													{metadata.dosenPengampu.length > 1 && (
+														<button type="button" className="eg-btn-remove" onClick={() => handleRemoveDosen(idx)}>
+															<IconX />
+														</button>
+													)}
+												</div>
+											))}
+										</div>
+										<button
+											type="button"
+											className="eg-btn-add"
+											onClick={handleAddDosen}
+											style={{ marginTop: "4px", alignSelf: "flex-start" }}
+										>
+											<IconPlus /> Tambah Dosen
+										</button>
 									</div>
+
 									<div className="eg-field">
 										<label>
 											Waktu Ujian <span style={{ color: "#ef4444" }}>*</span>
@@ -737,6 +745,13 @@ export default function ExamGeneratorForm() {
 												<option value="13:00 - 14:40 (100 Menit)">13:00 - 14:40 (100 Menit)</option>
 												<option value="13:00 - 15:00 (120 Menit)">13:00 - 15:00 (120 Menit)</option>
 											</optgroup>
+											<optgroup label="Sesi 3 (13:00) Jumat">
+												<option value="13:15 - 13:45 (30 Menit)">13:15 - 13:45 (30 Menit)</option>
+												<option value="13:15 - 14:15 (60 Menit)">13:15 - 14:15 (60 Menit)</option>
+												<option value="13:15 - 14:45 (90 Menit)">13:15 - 14:45 (90 Menit)</option>
+												<option value="13:15 - 14:55 (100 Menit)">13:15 - 14:55 (100 Menit)</option>
+												<option value="13:15 - 15:15 (120 Menit)">13:15 - 15:15 (120 Menit)</option>
+											</optgroup>
 										</select>
 									</div>
 									<div className="eg-field">
@@ -765,7 +780,6 @@ export default function ExamGeneratorForm() {
 								</div>
 							</div>
 
-							{/* 2. DAFTAR CPMK */}
 							<div className="eg-panel">
 								<div className="eg-panel-header">
 									<div className="eg-panel-icon">
@@ -801,7 +815,6 @@ export default function ExamGeneratorForm() {
 								</div>
 							</div>
 
-							{/* 3. PENGESAHAN */}
 							<div className="eg-panel" style={{ borderBottom: "none" }}>
 								<div className="eg-panel-header">
 									<div className="eg-panel-icon">
@@ -882,7 +895,7 @@ export default function ExamGeneratorForm() {
 								</div>
 								<div>
 									<div className="eg-right-header-title">Lembar Kerja: Daftar Soal &amp; Mapping</div>
-									<div className="eg-right-header-sub">Isi pertanyaan, mapping CPMK, dan letak gambar</div>
+									<div className="eg-right-header-sub">Isi pertanyaan, mapping CPMK, bobot, dan letak gambar</div>
 								</div>
 							</div>
 
@@ -953,6 +966,31 @@ export default function ExamGeneratorForm() {
 														setSoalList(u);
 													}}
 												/>
+												<label
+													style={{
+														display: "flex",
+														alignItems: "center",
+														gap: "6px",
+														marginTop: "8px",
+														cursor: "pointer",
+														textTransform: "none",
+														fontWeight: 500,
+														fontSize: "12px",
+														color: "#64748b",
+													}}
+												>
+													<input
+														type="checkbox"
+														checked={soal.tampilBobot}
+														onChange={(e) => {
+															const u = [...soalList];
+															u[index].tampilBobot = e.target.checked;
+															setSoalList(u);
+														}}
+														style={{ width: "14px", height: "14px", margin: 0, cursor: "pointer" }}
+													/>
+													Tampilkan Bobot di PDF
+												</label>
 											</div>
 										</div>
 
@@ -1004,24 +1042,21 @@ export default function ExamGeneratorForm() {
 											</div>
 										</div>
 
-										{/* Uraian Materi - Full Width */}
-										<div className="eg-field">
-											<label>Uraian Materi</label>
-											<input
-												type="text"
-												required
-												placeholder="Contoh: Analisis Kestabilan Sistem"
-												value={soal.uraianMateri}
-												onChange={(e) => {
-													const u = [...soalList];
-													u[index].uraianMateri = e.target.value;
-													setSoalList(u);
-												}}
-											/>
-										</div>
-
-										{/* Row Gambar & Posisi Gambar */}
 										<div className="eg-row-g2">
+											<div className="eg-field">
+												<label>Uraian Materi</label>
+												<input
+													type="text"
+													required
+													placeholder="Contoh: Analisis Kestabilan Sistem"
+													value={soal.uraianMateri}
+													onChange={(e) => {
+														const u = [...soalList];
+														u[index].uraianMateri = e.target.value;
+														setSoalList(u);
+													}}
+												/>
+											</div>
 											<div className="eg-field">
 												<label>
 													Gambar Pendukung{" "}
@@ -1053,28 +1088,6 @@ export default function ExamGeneratorForm() {
 													</span>
 												)}
 											</div>
-											<div className="eg-field">
-												<label>Posisi Gambar</label>
-												<select
-													value={soal.posisiGambar || "Atas"}
-													onChange={(e) => {
-														const u = [...soalList];
-														u[index].posisiGambar = e.target.value;
-														setSoalList(u);
-													}}
-												>
-													<option value="Atas">Di Awal Pertanyaan (Atas)</option>
-													<option value="Bawah">Di Akhir Pertanyaan (Bawah)</option>
-													<option value="Kustom">Di Tengah Teks (Kustom)</option>
-												</select>
-												{soal.posisiGambar === "Kustom" ? (
-													<span className="eg-hint" style={{ color: "#2563eb", fontWeight: 600 }}>
-														Ketik tag [GAMBAR] di dalam teks pertanyaan bawah.
-													</span>
-												) : (
-													<span className="eg-hint">Letak gambar saat dicetak ke PDF.</span>
-												)}
-											</div>
 										</div>
 
 										<div className="eg-field">
@@ -1090,6 +1103,32 @@ export default function ExamGeneratorForm() {
 												}}
 											/>
 										</div>
+
+										<div className="eg-field">
+											<label>
+												Posisi Gambar{" "}
+												<span style={{ fontWeight: 400, textTransform: "none", color: "#94a3b8", fontSize: "11px" }}>
+													— Bila ada gambar
+												</span>
+											</label>
+											<select
+												value={soal.posisiGambar || "Atas"}
+												onChange={(e) => {
+													const u = [...soalList];
+													u[index].posisiGambar = e.target.value;
+													setSoalList(u);
+												}}
+											>
+												<option value="Atas">Di Awal Pertanyaan (Atas)</option>
+												<option value="Bawah">Di Akhir Pertanyaan (Bawah)</option>
+												<option value="Kustom">Di Tengah Teks (Kustom)</option>
+											</select>
+											{soal.posisiGambar === "Kustom" && (
+												<span className="eg-hint" style={{ color: "#2563eb", fontWeight: 600 }}>
+													Ketik tag [GAMBAR] di dalam teks pertanyaan di atas.
+												</span>
+											)}
+										</div>
 									</div>
 								</div>
 							))}
@@ -1101,6 +1140,9 @@ export default function ExamGeneratorForm() {
 					</div>
 
 					<div className="eg-submit-bar">
+						<button type="button" onClick={handleResetForm} disabled={isGenerating} className="eg-reset-btn">
+							<IconTrash /> Reset Form
+						</button>
 						<button type="submit" disabled={isGenerating} className="eg-submit-btn">
 							{isGenerating ? (
 								<>
@@ -1118,7 +1160,7 @@ export default function ExamGeneratorForm() {
 								</>
 							) : (
 								<>
-									<IconDownload /> Generate 2 File PDF Sekarang
+									<IconDownload /> Generate File PDF Sekarang
 								</>
 							)}
 						</button>
