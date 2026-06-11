@@ -25,8 +25,12 @@ function formatTanggalIndonesia(dateString: string) {
 }
 
 export default function ExamGeneratorForm() {
+	// KODE SINGKAT PADA STATE AWAL
 	const [metadata, setMetadata] = useState({
 		programStudi: "Teknik Elektro",
+		jenisUjian: "UAS",
+		semester: "GENAP",
+		tahunAjar: "2025/2026",
 		mataKuliah: "",
 		tanggalUjian: "",
 		waktu: "08:00 - 08:30 (30 Menit)",
@@ -116,14 +120,15 @@ export default function ExamGeneratorForm() {
 		reader.readAsDataURL(file);
 	};
 
-	// ─── FITUR BARU: RESET FORM ───
 	const handleResetForm = () => {
 		const confirmReset = window.confirm("Apakah Anda yakin ingin mengosongkan semua isian form ini?");
 		if (!confirmReset) return;
 
-		// Kembalikan ke default bawaan
 		setMetadata({
 			programStudi: "Teknik Elektro",
+			jenisUjian: "UAS",
+			semester: "GENAP",
+			tahunAjar: "2025/2026",
 			mataKuliah: "",
 			tanggalUjian: "",
 			waktu: "08:00 - 08:30 (30 Menit)",
@@ -154,7 +159,6 @@ export default function ExamGeneratorForm() {
 			kaprogdi: { nama: "Dr. Ir. M. ARY HERYANTO, M.Eng., IPU., Asean.Eng.", tanggal: "" },
 		});
 
-		// Scroll kembali ke atas
 		window.scrollTo({ top: 0, behavior: "smooth" });
 	};
 
@@ -528,7 +532,6 @@ export default function ExamGeneratorForm() {
                 .eg-right-header-title { font-size: 15px; font-weight: 700; color: #0f172a; }
                 .eg-right-header-sub { font-size: 13px; color: #94a3b8; }
 
-                /* ── SUBMIT BAR DENGAN 2 TOMBOL ── */
                 .eg-submit-bar {
                     position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.96); backdrop-filter: blur(10px);
                     border-top: 1px solid #e2e8f0; padding: 14px 28px; 
@@ -582,7 +585,6 @@ export default function ExamGeneratorForm() {
 			</datalist>
 
 			<div className="eg-root">
-				{/* TOP BAR */}
 				<div className="eg-topbar">
 					<div className="eg-topbar-logo">
 						<svg
@@ -606,7 +608,6 @@ export default function ExamGeneratorForm() {
 
 				<form onSubmit={handleSubmit}>
 					<div className="eg-layout">
-						{/* PANEL KIRI */}
 						<div className="eg-left">
 							<div className="eg-panel">
 								<div className="eg-panel-header">
@@ -643,8 +644,51 @@ export default function ExamGeneratorForm() {
 											<option value="Teknik Industri">Teknik Industri</option>
 											<option value="Teknik Biomedis">Teknik Biomedis</option>
 										</select>
-										<span className="eg-hint">Format tabel PDF menyesuaikan prodi.</span>
 									</div>
+
+									{/* KODE SINGKAT PADA INPUT DROPDOWN DI SINI */}
+									<div className="eg-field">
+										<label>
+											Jenis Ujian <span style={{ color: "#ef4444" }}>*</span>
+										</label>
+										<select
+											required
+											value={metadata.jenisUjian}
+											onChange={(e) => setMetadata({ ...metadata, jenisUjian: e.target.value })}
+										>
+											<option value="UAS">Ujian Akhir Semester (UAS)</option>
+											<option value="UTS">Ujian Tengah Semester (UTS)</option>
+										</select>
+									</div>
+									<div className="eg-g2">
+										<div className="eg-field">
+											<label>
+												Semester <span style={{ color: "#ef4444" }}>*</span>
+											</label>
+											<select
+												required
+												value={metadata.semester}
+												onChange={(e) => setMetadata({ ...metadata, semester: e.target.value })}
+											>
+												<option value="GANJIL">Ganjil</option>
+												<option value="GENAP">Genap</option>
+											</select>
+										</div>
+										<div className="eg-field">
+											<label>
+												Tahun Ajar <span style={{ color: "#ef4444" }}>*</span>
+											</label>
+											<input
+												type="text"
+												required
+												placeholder="Contoh: 2025/2026"
+												value={metadata.tahunAjar}
+												onChange={(e) => setMetadata({ ...metadata, tahunAjar: e.target.value })}
+											/>
+										</div>
+									</div>
+									{/* ────────────────────────────────────────────────── */}
+
 									<div className="eg-field">
 										<label>
 											Mata Kuliah <span style={{ color: "#ef4444" }}>*</span>
@@ -730,13 +774,14 @@ export default function ExamGeneratorForm() {
 												<option value="08:00 - 09:00 (60 Menit)">08:00 - 09:00 (60 Menit)</option>
 												<option value="08:00 - 09:30 (90 Menit)">08:00 - 09:30 (90 Menit)</option>
 												<option value="08:00 - 09:40 (100 Menit)">08:00 - 09:40 (100 Menit)</option>
+												<option value="08:00 - 10:00 (120 Menit)">08:00 - 10:00 (120 Menit)</option>
 											</optgroup>
-											<optgroup label="Sesi 2 (09:45)">
-												<option value="09:45 - 10:15 (30 Menit)">09:45 - 10:15 (30 Menit)</option>
-												<option value="09:45 - 10:45 (60 Menit)">09:45 - 10:45 (60 Menit)</option>
-												<option value="09:45 - 11:15 (90 Menit)">09:45 - 11:15 (90 Menit)</option>
-												<option value="09:45 - 11:25 (100 Menit)">09:45 - 11:25 (100 Menit)</option>
-												<option value="09:45 - 11:45 (120 Menit)">09:45 - 11:45 (120 Menit)</option>
+											<optgroup label="Sesi 2 (10:30)">
+												<option value="10:30 - 11:00 (30 Menit)">10:30 - 11:00 (30 Menit)</option>
+												<option value="10:30 - 11:30 (60 Menit)">10:30 - 11:30 (60 Menit)</option>
+												<option value="10:30 - 11:40 (70 Menit)">10:30 - 11:40 (70 Menit)</option>
+												<option value="10:30 - 12:00 (90 Menit)">10:30 - 12:00 (90 Menit)</option>
+												<option value="10:30 - 12:10 (100 Menit)">10:30 - 12:10 (100 Menit)</option>
 											</optgroup>
 											<optgroup label="Sesi 3 (13:00)">
 												<option value="13:00 - 13:30 (30 Menit)">13:00 - 13:30 (30 Menit)</option>
@@ -903,8 +948,7 @@ export default function ExamGeneratorForm() {
 								<div key={index} className="eg-soal-card">
 									<div className="eg-soal-head">
 										<span className="eg-soal-label">
-											<span className="eg-soal-num-badge">#{soal.nomorSoal}</span>
-											Soal {soal.nomorSoal}
+											<span className="eg-soal-num-badge">#{soal.nomorSoal}</span>Soal {soal.nomorSoal}
 										</span>
 										{soalList.length > 1 && (
 											<button
@@ -917,7 +961,6 @@ export default function ExamGeneratorForm() {
 											</button>
 										)}
 									</div>
-
 									<div className="eg-soal-body">
 										<div className={isElektro ? "eg-row-g3" : "eg-row-g2"}>
 											<div className="eg-field">
