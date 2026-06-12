@@ -34,7 +34,7 @@ export function htmlTemplateQuestions(data: any): string {
     .meta-table { width: 100%; border: 1px solid #000; border-collapse: collapse; font-size: 10pt; margin-bottom: 15px; }
     .meta-table td { padding: 3px 8px; vertical-align: top; line-height: 1.1; }
     .meta-divider { border-left: 1px solid #000; }
-    .instruksi { font-weight: bold; text-decoration: underline; margin: 10px 0 15px 0; font-size: 11pt; }
+    .instruksi { margin: 10px 0 15px 0; font-size: 11pt; }
     .soal-item { margin-bottom: 20px; page-break-inside: avoid; }
     .layout-tabel { width: 100%; border-collapse: collapse; table-layout: fixed; border: none; }
     .layout-tabel td { border: none; padding: 0; }
@@ -68,15 +68,45 @@ export function htmlTemplateQuestions(data: any): string {
             L E M B A R &nbsp; S O A L
           </div>
           <table class="meta-table"><tr><td style="width:18%;">Mata Kuliah</td><td style="width:2%;">:</td><td style="width:30%;">${data.metadata.mataKuliah}</td><td style="width:15%;" class="meta-divider">Waktu</td><td style="width:2%;">:</td><td style="width:33%;">${data.metadata.waktu}</td></tr><tr><td>Hari / Tanggal</td><td>:</td><td>${data.metadata.hariTanggal}</td><td class="meta-divider">Sifat</td><td>:</td><td>${data.metadata.sifat}</td></tr><tr><td>Kelompok</td><td>:</td><td>${data.metadata.kelompok}</td><td class="meta-divider">Dosen</td><td>:</td><td>${dosen}</td></tr></table>
+          <div class="instruksi">${(() => {
+						if (!data.metadata.petunjukUjian && !data.metadata.petunjukGambar) return "";
+
+						let teks = (data.metadata.petunjukUjian || "").replace(/\n/g, "<br/>");
+						const hasImg = !!data.metadata.petunjukGambar;
+						const imgHtml = hasImg
+							? `<div style="text-align:center; margin: 10px 0;">
+                             <img src="${data.metadata.petunjukGambar}" style="max-width: ${data.metadata.petunjukUkuranGambar}; height: auto; max-height: 300px;">
+                           </div>`
+							: "";
+
+						let finalPetunjuk = "";
+						if (data.metadata.petunjukPosisiGambar === "Kustom" && teks.includes("[GAMBAR]")) {
+							finalPetunjuk = teks.replace("[GAMBAR]", imgHtml);
+						} else if (data.metadata.petunjukPosisiGambar === "Atas") {
+							finalPetunjuk = imgHtml + teks;
+						} else {
+							finalPetunjuk = teks + imgHtml;
+						}
+
+						return `<div class="instruksi">${finalPetunjuk}</div>`;
+					})()}</div> 
         </td>
       </tr>
       ${data.soalList
 				.map((soal: any) => {
 					const imgs = soal.kontenSoal.gambarPendukung || [];
 					const hasImg = imgs.length > 0;
+
+					// AMBIL VARIABEL UKURAN (Default 45% jika kosong)
+					const ukuran = soal.ukuranGambar || "45%";
+
+					// SUNTIKKAN UKURAN KE DALAM INLINE STYLE GAMBAR
 					const imgHtml = hasImg
 						? imgs
-								.map((img: string) => `<img src="${img}" class="uploaded-img" alt="Gambar soal ${soal.nomorSoal}" />`)
+								.map(
+									(img: string) =>
+										`<img src="${img}" style="max-width: ${ukuran}; height: auto; max-height: 350px; object-fit: contain; display: block; margin: 0 auto;" alt="Gambar soal ${soal.nomorSoal}" />`,
+								)
 								.join("")
 						: "";
 					let teks = (soal.kontenSoal.teksPertanyaan || "").trim();

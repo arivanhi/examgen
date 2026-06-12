@@ -25,7 +25,6 @@ function formatTanggalIndonesia(dateString: string) {
 }
 
 export default function ExamGeneratorForm() {
-	// KODE SINGKAT PADA STATE AWAL
 	const [metadata, setMetadata] = useState({
 		programStudi: "Teknik Elektro",
 		jenisUjian: "UAS",
@@ -38,9 +37,18 @@ export default function ExamGeneratorForm() {
 		sifatCatatan: "",
 		kelompok: "",
 		dosenPengampu: [""],
+		petunjukUjian: "KERJAKAN SOAL PADA LEMBAR JAWAB YANG TELAH DISEDIAKAN SESUAI DENGAN URUTAN SOAL.", // <--- TAMBAHKAN INI
+		petunjukGambar: "", // <--- TAMBAHKAN INI
+		petunjukPosisiGambar: "Bawah", // <--- TAMBAHKAN INI
+		petunjukUkuranGambar: "45%", // <--- TAMBAHKAN INI
 	});
 
-	const [cpmkList, setCpmkList] = useState([{ id: "CPMK 1", deskripsi: "" }]);
+	// FITUR BARU: State untuk mengontrol mode input Waktu Ujian
+	const [isWaktuKustom, setIsWaktuKustom] = useState(false);
+
+	const [cpmkList, setCpmkList] = useState([
+		{ id: "CPMK 1", deskripsi: "", subCpmks: [] as { id: string; deskripsi: string }[] },
+	]);
 
 	const [soalList, setSoalList] = useState([
 		{
@@ -53,6 +61,7 @@ export default function ExamGeneratorForm() {
 			pemetaanCpmkIndustri: [] as string[],
 			kontenSoal: { teksPertanyaan: "", gambarPendukung: [] as string[] },
 			posisiGambar: "Atas",
+			ukuranGambar: "45%", // <--- TAMBAHKAN INI
 		},
 	]);
 
@@ -81,10 +90,30 @@ export default function ExamGeneratorForm() {
 		setMetadata({ ...metadata, dosenPengampu: updated });
 	};
 
-	const handleAddCpmk = () => setCpmkList([...cpmkList, { id: `CPMK ${cpmkList.length + 1}`, deskripsi: "" }]);
+	const handleAddCpmk = () =>
+		setCpmkList([...cpmkList, { id: `CPMK ${cpmkList.length + 1}`, deskripsi: "", subCpmks: [] }]);
 	const handleRemoveCpmk = (i: number) => {
 		const updated = cpmkList.filter((_, idx) => idx !== i);
 		setCpmkList(updated.map((c, idx) => ({ ...c, id: `CPMK ${idx + 1}` })));
+	};
+	const handleAddSubCpmk = (cpmkIndex: number) => {
+		const updated = [...cpmkList];
+		const nextSubId = `SCPMK ${updated[cpmkIndex].subCpmks.length + 1}`;
+		updated[cpmkIndex].subCpmks.push({ id: nextSubId, deskripsi: "" });
+		setCpmkList(updated);
+	};
+
+	const handleRemoveSubCpmk = (cpmkIndex: number, subIndex: number) => {
+		const updated = [...cpmkList];
+		updated[cpmkIndex].subCpmks = updated[cpmkIndex].subCpmks.filter((_, i) => i !== subIndex);
+		updated[cpmkIndex].subCpmks = updated[cpmkIndex].subCpmks.map((sub, i) => ({ ...sub, id: `SCPMK ${i + 1}` }));
+		setCpmkList(updated);
+	};
+
+	const handleChangeSubCpmk = (cpmkIndex: number, subIndex: number, val: string) => {
+		const updated = [...cpmkList];
+		updated[cpmkIndex].subCpmks[subIndex].deskripsi = val;
+		setCpmkList(updated);
 	};
 
 	const handleAddSoal = () =>
@@ -100,6 +129,7 @@ export default function ExamGeneratorForm() {
 				pemetaanCpmkIndustri: [],
 				kontenSoal: { teksPertanyaan: "", gambarPendukung: [] },
 				posisiGambar: "Atas",
+				ukuranGambar: "45%", // <--- TAMBAHKAN INI
 			},
 		]);
 
@@ -119,11 +149,21 @@ export default function ExamGeneratorForm() {
 		};
 		reader.readAsDataURL(file);
 	};
+	const handlePetunjukImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+		const reader = new FileReader();
+		reader.onloadend = () => {
+			setMetadata({ ...metadata, petunjukGambar: reader.result as string });
+		};
+		reader.readAsDataURL(file);
+	};
 
 	const handleResetForm = () => {
 		const confirmReset = window.confirm("Apakah Anda yakin ingin mengosongkan semua isian form ini?");
 		if (!confirmReset) return;
 
+		setIsWaktuKustom(false); // Kembalikan ke mode dropdown standar
 		setMetadata({
 			programStudi: "Teknik Elektro",
 			jenisUjian: "UAS",
@@ -136,9 +176,13 @@ export default function ExamGeneratorForm() {
 			sifatCatatan: "",
 			kelompok: "",
 			dosenPengampu: [""],
+			petunjukUjian: "KERJAKAN SOAL PADA LEMBAR JAWAB YANG TELAH DISEDIAKAN SESUAI DENGAN URUTAN SOAL.",
+			petunjukGambar: "",
+			petunjukPosisiGambar: "Bawah",
+			petunjukUkuranGambar: "45%",
 		});
 
-		setCpmkList([{ id: "CPMK 1", deskripsi: "" }]);
+		setCpmkList([{ id: "CPMK 1", deskripsi: "", subCpmks: [] }]);
 
 		setSoalList([
 			{
@@ -151,6 +195,7 @@ export default function ExamGeneratorForm() {
 				pemetaanCpmkIndustri: [],
 				kontenSoal: { teksPertanyaan: "", gambarPendukung: [] },
 				posisiGambar: "Atas",
+				ukuranGambar: "45%", // <--- TAMBAHKAN INI
 			},
 		]);
 
@@ -532,6 +577,7 @@ export default function ExamGeneratorForm() {
                 .eg-right-header-title { font-size: 15px; font-weight: 700; color: #0f172a; }
                 .eg-right-header-sub { font-size: 13px; color: #94a3b8; }
 
+                /* ── SUBMIT BAR DENGAN 2 TOMBOL ── */
                 .eg-submit-bar {
                     position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.96); backdrop-filter: blur(10px);
                     border-top: 1px solid #e2e8f0; padding: 14px 28px; 
@@ -646,7 +692,6 @@ export default function ExamGeneratorForm() {
 										</select>
 									</div>
 
-									{/* KODE SINGKAT PADA INPUT DROPDOWN DI SINI */}
 									<div className="eg-field">
 										<label>
 											Jenis Ujian <span style={{ color: "#ef4444" }}>*</span>
@@ -687,7 +732,6 @@ export default function ExamGeneratorForm() {
 											/>
 										</div>
 									</div>
-									{/* ────────────────────────────────────────────────── */}
 
 									<div className="eg-field">
 										<label>
@@ -760,45 +804,93 @@ export default function ExamGeneratorForm() {
 										</button>
 									</div>
 
+									{/* ─── FITUR BARU: WAKTU UJIAN KUSTOM DI SINI ─── */}
 									<div className="eg-field">
-										<label>
-											Waktu Ujian <span style={{ color: "#ef4444" }}>*</span>
-										</label>
-										<select
-											required
-											value={metadata.waktu}
-											onChange={(e) => setMetadata({ ...metadata, waktu: e.target.value })}
+										<div
+											style={{
+												display: "flex",
+												justifyContent: "space-between",
+												alignItems: "center",
+												marginBottom: "5px",
+											}}
 										>
-											<optgroup label="Sesi 1 (08:00)">
-												<option value="08:00 - 08:30 (30 Menit)">08:00 - 08:30 (30 Menit)</option>
-												<option value="08:00 - 09:00 (60 Menit)">08:00 - 09:00 (60 Menit)</option>
-												<option value="08:00 - 09:30 (90 Menit)">08:00 - 09:30 (90 Menit)</option>
-												<option value="08:00 - 09:40 (100 Menit)">08:00 - 09:40 (100 Menit)</option>
-												<option value="08:00 - 10:00 (120 Menit)">08:00 - 10:00 (120 Menit)</option>
-											</optgroup>
-											<optgroup label="Sesi 2 (10:30)">
-												<option value="10:30 - 11:00 (30 Menit)">10:30 - 11:00 (30 Menit)</option>
-												<option value="10:30 - 11:30 (60 Menit)">10:30 - 11:30 (60 Menit)</option>
-												<option value="10:30 - 11:40 (70 Menit)">10:30 - 11:40 (70 Menit)</option>
-												<option value="10:30 - 12:00 (90 Menit)">10:30 - 12:00 (90 Menit)</option>
-												<option value="10:30 - 12:10 (100 Menit)">10:30 - 12:10 (100 Menit)</option>
-											</optgroup>
-											<optgroup label="Sesi 3 (13:00)">
-												<option value="13:00 - 13:30 (30 Menit)">13:00 - 13:30 (30 Menit)</option>
-												<option value="13:00 - 14:00 (60 Menit)">13:00 - 14:00 (60 Menit)</option>
-												<option value="13:00 - 14:30 (90 Menit)">13:00 - 14:30 (90 Menit)</option>
-												<option value="13:00 - 14:40 (100 Menit)">13:00 - 14:40 (100 Menit)</option>
-												<option value="13:00 - 15:00 (120 Menit)">13:00 - 15:00 (120 Menit)</option>
-											</optgroup>
-											<optgroup label="Sesi 3 (13:00) Jumat">
-												<option value="13:15 - 13:45 (30 Menit)">13:15 - 13:45 (30 Menit)</option>
-												<option value="13:15 - 14:15 (60 Menit)">13:15 - 14:15 (60 Menit)</option>
-												<option value="13:15 - 14:45 (90 Menit)">13:15 - 14:45 (90 Menit)</option>
-												<option value="13:15 - 14:55 (100 Menit)">13:15 - 14:55 (100 Menit)</option>
-												<option value="13:15 - 15:15 (120 Menit)">13:15 - 15:15 (120 Menit)</option>
-											</optgroup>
-										</select>
+											<label style={{ margin: 0 }}>
+												Waktu Ujian <span style={{ color: "#ef4444" }}>*</span>
+											</label>
+											<label
+												style={{
+													cursor: "pointer",
+													fontSize: "11px",
+													fontWeight: 600,
+													color: "#2563eb",
+													display: "flex",
+													alignItems: "center",
+													gap: "4px",
+													textTransform: "none",
+												}}
+											>
+												<input
+													type="checkbox"
+													checked={isWaktuKustom}
+													onChange={(e) => {
+														setIsWaktuKustom(e.target.checked);
+														// Reset value jika kembali ke dropdown agar tidak nyangkut
+														if (!e.target.checked) setMetadata({ ...metadata, waktu: "08:00 - 08:30 (30 Menit)" });
+														else setMetadata({ ...metadata, waktu: "" });
+													}}
+													style={{ width: "auto", margin: 0 }}
+												/>
+												Kustom (Isi Manual)
+											</label>
+										</div>
+
+										{isWaktuKustom ? (
+											<input
+												type="text"
+												required
+												placeholder="Contoh: 08:00 - 09:15 (75 Menit)"
+												value={metadata.waktu}
+												onChange={(e) => setMetadata({ ...metadata, waktu: e.target.value })}
+											/>
+										) : (
+											<select
+												required
+												value={metadata.waktu}
+												onChange={(e) => setMetadata({ ...metadata, waktu: e.target.value })}
+											>
+												<optgroup label="Sesi 1 (08:00)">
+													<option value="08:00 - 08:30 (30 Menit)">08:00 - 08:30 (30 Menit)</option>
+													<option value="08:00 - 09:00 (60 Menit)">08:00 - 09:00 (60 Menit)</option>
+													<option value="08:00 - 09:30 (90 Menit)">08:00 - 09:30 (90 Menit)</option>
+													<option value="08:00 - 09:40 (100 Menit)">08:00 - 09:40 (100 Menit)</option>
+													<option value="08:00 - 10:00 (120 Menit)">08:00 - 10:00 (120 Menit)</option>
+												</optgroup>
+												<optgroup label="Sesi 2 (10:30)">
+													<option value="10:30 - 11:00 (30 Menit)">10:30 - 11:00 (30 Menit)</option>
+													<option value="10:30 - 11:30 (60 Menit)">10:30 - 11:30 (60 Menit)</option>
+													<option value="10:30 - 11:40 (70 Menit)">10:30 - 11:40 (70 Menit)</option>
+													<option value="10:30 - 12:00 (90 Menit)">10:30 - 12:00 (90 Menit)</option>
+													<option value="10:30 - 12:10 (100 Menit)">10:30 - 12:10 (100 Menit)</option>
+												</optgroup>
+												<optgroup label="Sesi 3 (13:00)">
+													<option value="13:00 - 13:30 (30 Menit)">13:00 - 13:30 (30 Menit)</option>
+													<option value="13:00 - 14:00 (60 Menit)">13:00 - 14:00 (60 Menit)</option>
+													<option value="13:00 - 14:30 (90 Menit)">13:00 - 14:30 (90 Menit)</option>
+													<option value="13:00 - 14:40 (100 Menit)">13:00 - 14:40 (100 Menit)</option>
+													<option value="13:00 - 15:00 (120 Menit)">13:00 - 15:00 (120 Menit)</option>
+												</optgroup>
+												<optgroup label="Sesi 3 (13:00) Jumat">
+													<option value="13:15 - 13:45 (30 Menit)">13:15 - 13:45 (30 Menit)</option>
+													<option value="13:15 - 14:15 (60 Menit)">13:15 - 14:15 (60 Menit)</option>
+													<option value="13:15 - 14:45 (90 Menit)">13:15 - 14:45 (90 Menit)</option>
+													<option value="13:15 - 14:55 (100 Menit)">13:15 - 14:55 (100 Menit)</option>
+													<option value="13:15 - 15:15 (120 Menit)">13:15 - 15:15 (120 Menit)</option>
+												</optgroup>
+											</select>
+										)}
 									</div>
+									{/* ──────────────────────────────────────────────────────── */}
+
 									<div className="eg-field">
 										<label>
 											Sifat Ujian <span style={{ color: "#ef4444" }}>*</span>
@@ -822,6 +914,58 @@ export default function ExamGeneratorForm() {
 											/>
 										</div>
 									</div>
+
+									{/* ─── FITUR BARU: PETUNJUK PENGERJAAN SOAL + GAMBAR ─── */}
+									<div className="eg-field">
+										<label>
+											Petunjuk Pengerjaan Soal{" "}
+											<span style={{ fontWeight: 400, textTransform: "none", color: "#94a3b8", fontSize: "11px" }}>
+												— Opsional
+											</span>
+										</label>
+										<textarea
+											value={metadata.petunjukUjian}
+											onChange={(e) => setMetadata({ ...metadata, petunjukUjian: e.target.value })}
+											style={{ minHeight: "65px" }}
+										/>
+
+										<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "10px" }}>
+											<div className="eg-field">
+												<label style={{ fontSize: "10px" }}>Gambar Petunjuk</label>
+												<input
+													type="file"
+													accept="image/*"
+													className="eg-upload"
+													onChange={handlePetunjukImageUpload}
+												/>
+												{metadata.petunjukGambar && <span className="eg-ok-badge">Gambar terunggah</span>}
+											</div>
+											<div className="eg-field">
+												<label style={{ fontSize: "10px" }}>Ukuran Gambar</label>
+												<select
+													value={metadata.petunjukUkuranGambar}
+													onChange={(e) => setMetadata({ ...metadata, petunjukUkuranGambar: e.target.value })}
+												>
+													<option value="30%">Kecil (30%)</option>
+													<option value="45%">Normal (45%)</option>
+													<option value="75%">Besar (75%)</option>
+													<option value="100%">Penuh (100%)</option>
+												</select>
+											</div>
+										</div>
+
+										<div className="eg-field" style={{ marginTop: "10px" }}>
+											<label style={{ fontSize: "10px" }}>Posisi Gambar Petunjuk</label>
+											<select
+												value={metadata.petunjukPosisiGambar}
+												onChange={(e) => setMetadata({ ...metadata, petunjukPosisiGambar: e.target.value })}
+											>
+												<option value="Atas">Di Awal Petunjuk</option>
+												<option value="Bawah">Di Akhir Petunjuk</option>
+												<option value="Kustom">Gunakan tag [GAMBAR] di teks petunjuk</option>
+											</select>
+										</div>
+									</div>
 								</div>
 							</div>
 
@@ -834,24 +978,75 @@ export default function ExamGeneratorForm() {
 								</div>
 								<div className="eg-panel-body">
 									{cpmkList.map((cpmk, i) => (
-										<div key={i} className="eg-cpmk-row">
-											<div className="eg-cpmk-badge">{cpmk.id}</div>
-											<input
-												type="text"
-												required
-												placeholder="Deskripsi capaian..."
-												value={cpmk.deskripsi}
-												onChange={(e) => {
-													const u = [...cpmkList];
-													u[i].deskripsi = e.target.value;
-													setCpmkList(u);
-												}}
-											/>
-											{cpmkList.length > 1 && (
-												<button type="button" className="eg-btn-remove" onClick={() => handleRemoveCpmk(i)}>
-													<IconX />
-												</button>
+										<div
+											key={i}
+											style={{
+												display: "flex",
+												flexDirection: "column",
+												gap: "8px",
+												paddingBottom: "12px",
+												borderBottom: i < cpmkList.length - 1 ? "1px dashed #e2e8f0" : "none",
+											}}
+										>
+											<div className="eg-cpmk-row">
+												<div className="eg-cpmk-badge">{cpmk.id}</div>
+												<input
+													type="text"
+													required
+													placeholder="Deskripsi capaian..."
+													value={cpmk.deskripsi}
+													onChange={(e) => {
+														const u = [...cpmkList];
+														u[i].deskripsi = e.target.value;
+														setCpmkList(u);
+													}}
+												/>
+												{cpmkList.length > 1 && (
+													<button type="button" className="eg-btn-remove" onClick={() => handleRemoveCpmk(i)}>
+														<IconX />
+													</button>
+												)}
+											</div>
+
+											{/* ─── FITUR BARU: SUB-CPMK KHUSUS BIOMEDIS ─── */}
+											{metadata.programStudi === "Teknik Biomedis" && (
+												<div style={{ paddingLeft: "40px", display: "flex", flexDirection: "column", gap: "6px" }}>
+													{cpmk.subCpmks &&
+														cpmk.subCpmks.map((sub, j) => (
+															<div key={j} className="eg-cpmk-row">
+																<div
+																	className="eg-cpmk-badge"
+																	style={{ backgroundColor: "#f8fafc", width: "80px", fontSize: "11px" }}
+																>
+																	{sub.id}
+																</div>
+																<input
+																	type="text"
+																	required
+																	placeholder="Deskripsi Sub-CPMK..."
+																	value={sub.deskripsi}
+																	onChange={(e) => handleChangeSubCpmk(i, j, e.target.value)}
+																/>
+																<button
+																	type="button"
+																	className="eg-btn-remove"
+																	onClick={() => handleRemoveSubCpmk(i, j)}
+																>
+																	<IconX />
+																</button>
+															</div>
+														))}
+													<button
+														type="button"
+														className="eg-btn-add"
+														onClick={() => handleAddSubCpmk(i)}
+														style={{ fontSize: "11.5px", width: "fit-content" }}
+													>
+														<IconPlus /> Tambah Sub-CPMK
+													</button>
+												</div>
 											)}
+											{/* ──────────────────────────────────────────── */}
 										</div>
 									))}
 									<button type="button" className="eg-btn-add" onClick={handleAddCpmk}>
@@ -1147,31 +1342,52 @@ export default function ExamGeneratorForm() {
 											/>
 										</div>
 
-										<div className="eg-field">
-											<label>
-												Posisi Gambar{" "}
-												<span style={{ fontWeight: 400, textTransform: "none", color: "#94a3b8", fontSize: "11px" }}>
-													— Bila ada gambar
-												</span>
-											</label>
-											<select
-												value={soal.posisiGambar || "Atas"}
-												onChange={(e) => {
-													const u = [...soalList];
-													u[index].posisiGambar = e.target.value;
-													setSoalList(u);
-												}}
-											>
-												<option value="Atas">Di Awal Pertanyaan (Atas)</option>
-												<option value="Bawah">Di Akhir Pertanyaan (Bawah)</option>
-												<option value="Kustom">Di Tengah Teks (Kustom)</option>
-											</select>
-											{soal.posisiGambar === "Kustom" && (
-												<span className="eg-hint" style={{ color: "#2563eb", fontWeight: 600 }}>
-													Ketik tag [GAMBAR] di dalam teks pertanyaan di atas.
-												</span>
-											)}
+										{/* ─── GANTI BAGIAN BAWAH INI ─── */}
+										<div className="eg-row-g2">
+											<div className="eg-field">
+												<label>
+													Posisi Gambar{" "}
+													<span style={{ fontWeight: 400, textTransform: "none", color: "#94a3b8", fontSize: "11px" }}>
+														— Bila ada gambar
+													</span>
+												</label>
+												<select
+													value={soal.posisiGambar || "Atas"}
+													onChange={(e) => {
+														const u = [...soalList];
+														u[index].posisiGambar = e.target.value;
+														setSoalList(u);
+													}}
+												>
+													<option value="Atas">Di Awal Pertanyaan (Atas)</option>
+													<option value="Bawah">Di Akhir Pertanyaan (Bawah)</option>
+													<option value="Kustom">Di Tengah Teks (Kustom)</option>
+												</select>
+												{soal.posisiGambar === "Kustom" && (
+													<span className="eg-hint" style={{ color: "#2563eb", fontWeight: 600 }}>
+														Ketik tag [GAMBAR] di teks atas.
+													</span>
+												)}
+											</div>
+
+											<div className="eg-field">
+												<label>Ukuran Gambar</label>
+												<select
+													value={soal.ukuranGambar || "45%"}
+													onChange={(e) => {
+														const u = [...soalList];
+														u[index].ukuranGambar = e.target.value;
+														setSoalList(u);
+													}}
+												>
+													<option value="30%">Kecil (30% Lebar Kertas)</option>
+													<option value="45%">Normal (45% Lebar Kertas)</option>
+													<option value="75%">Besar (75% Lebar Kertas)</option>
+													<option value="100%">Penuh (100% Lebar Kertas)</option>
+												</select>
+											</div>
 										</div>
+										{/* ────────────────────────────── */}
 									</div>
 								</div>
 							))}

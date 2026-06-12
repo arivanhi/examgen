@@ -8,10 +8,100 @@ export function htmlTemplateAssessment(data: any): string {
 	const logoSrc = data.logoBase64 || "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 	const isElektro = data.metadata.programStudi === "Teknik Elektro";
 
-	// PEMBACAAN KODE SINGKAT YANG ANTI-GAGAL
 	const teksJenisUjian = data.metadata.jenisUjian === "UTS" ? "UJIAN TENGAH SEMESTER" : "UJIAN AKHIR SEMESTER";
 	const teksSemester = data.metadata.semester === "GANJIL" ? "GANJIL" : "GENAP";
 	const teksTahun = data.metadata.tahunAjar || "2025/2026";
+
+	// ─── LOGIKA BARU: PENGELOMPOKAN SOAL (GROUPING) ───
+	const groupedSoal: any[] = [];
+	data.soalList.forEach((soal: any) => {
+		const keyMateri = (soal.uraianMateri || "").trim().toLowerCase();
+		const keyBentuk = (soal.bentukSoal || "").trim().toLowerCase();
+
+		// Cari apakah sudah ada baris dengan Materi & Bentuk Soal yang sama persis
+		const existing = groupedSoal.find(
+			(g) =>
+				(g.uraianMateri || "").trim().toLowerCase() === keyMateri &&
+				(g.bentukSoal || "").trim().toLowerCase() === keyBentuk,
+		);
+
+		if (existing) {
+			existing.soalNumbers.push(Number(soal.nomorSoal));
+			existing.totalBobot += Number(soal.bobotPersen) || 0;
+
+			// Gabungkan relasi CPMK Industri
+			if (soal.pemetaanCpmkIndustri) {
+				soal.pemetaanCpmkIndustri.forEach((c: string) => {
+					if (!existing.pemetaanCpmkIndustri.includes(c)) existing.pemetaanCpmkIndustri.push(c);
+				});
+			}
+
+			// Gabungkan relasi CPMK Elektro
+			if (soal.pemetaanCpmk?.cpmk) {
+				const arr = soal.pemetaanCpmk.cpmk
+					.split(",")
+					.map((s: string) => s.trim())
+					.filter(Boolean);
+				const exArr = existing.pemetaanCpmk.cpmk
+					? existing.pemetaanCpmk.cpmk
+							.split(",")
+							.map((s: string) => s.trim())
+							.filter(Boolean)
+					: [];
+				arr.forEach((c: string) => {
+					if (!exArr.includes(c)) exArr.push(c);
+				});
+				existing.pemetaanCpmk.cpmk = exArr.sort((a: string, b: string) => parseInt(a) - parseInt(b)).join(", ");
+			}
+			if (soal.pemetaanCpmk?.subCpmk) {
+				const arr = soal.pemetaanCpmk.subCpmk
+					.split(",")
+					.map((s: string) => s.trim())
+					.filter(Boolean);
+				const exArr = existing.pemetaanCpmk.subCpmk
+					? existing.pemetaanCpmk.subCpmk
+							.split(",")
+							.map((s: string) => s.trim())
+							.filter(Boolean)
+					: [];
+				arr.forEach((c: string) => {
+					if (!exArr.includes(c)) exArr.push(c);
+				});
+				existing.pemetaanCpmk.subCpmk = exArr.sort((a: string, b: string) => parseInt(a) - parseInt(b)).join(", ");
+			}
+		} else {
+			groupedSoal.push({
+				uraianMateri: soal.uraianMateri,
+				bentukSoal: soal.bentukSoal,
+				soalNumbers: [Number(soal.nomorSoal)],
+				totalBobot: Number(soal.bobotPersen) || 0,
+				pemetaanCpmkIndustri: soal.pemetaanCpmkIndustri ? [...soal.pemetaanCpmkIndustri] : [],
+				pemetaanCpmk: soal.pemetaanCpmk ? { ...soal.pemetaanCpmk } : { subCpmk: "", cpmk: "" },
+			});
+		}
+	});
+
+	// Helper cerdas pembuat rentang nomor (Contoh: [1,2,3] -> "1 - 3", [1,3] -> "1, 3")
+	const formatNumbers = (nums: number[]) => {
+		if (!nums || !nums.length) return "";
+		const sorted = [...new Set(nums)].sort((a, b) => a - b);
+		let ranges = [];
+		let start = sorted[0];
+		let end = sorted[0];
+
+		for (let i = 1; i < sorted.length; i++) {
+			if (sorted[i] === end + 1) {
+				end = sorted[i];
+			} else {
+				ranges.push(start === end ? `${start}` : `${start} - ${end}`);
+				start = sorted[i];
+				end = sorted[i];
+			}
+		}
+		ranges.push(start === end ? `${start}` : `${start} - ${end}`);
+		return ranges.join(", ");
+	};
+	// ──────────────────────────────────────────────────
 
 	const tabelMappingHtml = isElektro
 		? `
@@ -27,21 +117,21 @@ export function htmlTemplateAssessment(data: any): string {
       </tr>
     </thead>
     <tbody>
-      ${data.soalList
+      ${groupedSoal
 				.map(
-					(s: any) => `
+					(g: any, index: number) => `
         <tr>
-          <td style="text-align:center;">${s.nomorSoal}.</td>
-          <td style="text-align:center;">${s.bentukSoal}</td>
-          <td style="white-space: pre-wrap;">${s.uraianMateri || "-"}</td>
-          <td style="text-align:center; white-space:nowrap;">SOAL<br/>No. ${s.nomorSoal}</td>
+          <td style="text-align:center;">${index + 1}.</td>
+          <td style="text-align:center;">${g.bentukSoal}</td>
+          <td style="white-space: pre-wrap;">${g.uraianMateri || "-"}</td>
+          <td style="text-align:center; white-space:nowrap;">Soal No.<br/>${formatNumbers(g.soalNumbers)}</td>
           <td style="padding:0;">
             <table style="width:100%; height:100%; border-collapse:collapse; border:none; margin:0;">
-              <tr><td style="border-bottom:1px solid #000; border-right:1px solid #000; padding:5px 8px; width:45%;"><strong>CPMK:</strong></td><td style="border-bottom:1px solid #000; padding:5px 8px; text-align:center;"><strong>${s.pemetaanCpmk?.cpmk || "-"}</strong></td></tr>
-              <tr><td style="border-right:1px solid #000; padding:5px 8px;"><strong>SCPMK:</strong></td><td style="padding:5px 8px; text-align:center;"><strong>${s.pemetaanCpmk?.subCpmk || "-"}</strong></td></tr>
+              <tr><td style="border-bottom:1px solid #000; border-right:1px solid #000; padding:5px 8px; width:45%;"><strong>CPMK:</strong></td><td style="border-bottom:1px solid #000; padding:5px 8px; text-align:center;"><strong>${g.pemetaanCpmk?.cpmk || "-"}</strong></td></tr>
+              <tr><td style="border-right:1px solid #000; padding:5px 8px;"><strong>SCPMK:</strong></td><td style="padding:5px 8px; text-align:center;"><strong>${g.pemetaanCpmk?.subCpmk || "-"}</strong></td></tr>
             </table>
           </td>
-          <td style="text-align:center;"><strong>${s.bobotPersen}</strong></td>
+          <td style="text-align:center;"><strong>${g.totalBobot}</strong></td>
         </tr>
       `,
 				)
@@ -63,16 +153,16 @@ export function htmlTemplateAssessment(data: any): string {
       <tr>${data.cpmkList.map((c: any) => `<th style="text-align:center; width:${40 / data.cpmkList.length}%;">CPMK<br/>${c.id.replace("CPMK ", "")}</th>`).join("")}</tr>
     </thead>
     <tbody>
-      ${data.soalList
+      ${groupedSoal
 				.map(
-					(s: any) => `
+					(g: any, index: number) => `
         <tr>
-          <td style="text-align:center;">${s.nomorSoal}.</td>
-          <td style="text-align:center;">${s.bentukSoal}</td>
-          <td style="white-space: pre-wrap;">${s.uraianMateri || "-"}</td>
-          <td style="text-align:center; white-space:nowrap;">Soal<br/>No. ${s.nomorSoal}</td>
-          ${data.cpmkList.map((c: any) => `<td style="text-align:center; font-size:12pt; font-weight:bold;">${s.pemetaanCpmkIndustri && s.pemetaanCpmkIndustri.includes(c.id) ? "&#10003;" : ""}</td>`).join("")}
-          <td style="text-align:center;"><strong>${s.bobotPersen}</strong></td>
+          <td style="text-align:center;">${index + 1}.</td>
+          <td style="text-align:center;">${g.bentukSoal}</td>
+          <td style="white-space: pre-wrap;">${g.uraianMateri || "-"}</td>
+          <td style="text-align:center; white-space:nowrap;">Soal No.<br/>${formatNumbers(g.soalNumbers)}</td>
+          ${data.cpmkList.map((c: any) => `<td style="text-align:center; font-size:12pt; font-weight:bold;">${g.pemetaanCpmkIndustri && g.pemetaanCpmkIndustri.includes(c.id) ? "&#10003;" : ""}</td>`).join("")}
+          <td style="text-align:center;"><strong>${g.totalBobot}</strong></td>
         </tr>
       `,
 				)
@@ -125,7 +215,25 @@ export function htmlTemplateAssessment(data: any): string {
 
   <table class="meta-table"><tr><td style="width:18%;">Mata Kuliah</td><td style="width:2%;">:</td><td style="width:30%;">${data.metadata.mataKuliah}</td><td style="width:15%;" class="meta-divider">Waktu</td><td style="width:2%;">:</td><td style="width:33%;">${data.metadata.waktu}</td></tr><tr><td>Hari / Tanggal</td><td>:</td><td>${data.metadata.hariTanggal}</td><td class="meta-divider">Sifat</td><td>:</td><td>${data.metadata.sifat}</td></tr><tr><td>Kelompok</td><td>:</td><td>${data.metadata.kelompok}</td><td class="meta-divider">Dosen</td><td>:</td><td>${dosen}</td></tr></table>
   <h4>Rancangan Assesment</h4><p class="tabel-label"><strong>Tabel 1. Capaian Pembelajaran Mata Kuliah (CPMK) ${data.metadata.mataKuliah} adalah sebagai berikut:</strong></p>
-  <table class="table-bordered">${data.cpmkList.map((c: any) => `<tr><td style="width:15%; text-align:center;"><strong>${c.id}</strong></td><td>${c.deskripsi}</td></tr>`).join("")}</table>
+  
+  <table class="table-bordered">
+    ${data.cpmkList
+			.map((c: any) => {
+				let rows = `<tr><td style="width:15%; text-align:center;"><strong>${c.id}</strong></td><td>${c.deskripsi}</td></tr>`;
+				if (c.subCpmks && c.subCpmks.length > 0) {
+					rows += `<tr><td colspan="2"><strong>Sub CPMK :</strong></td></tr>`;
+					rows += c.subCpmks
+						.map(
+							(sub: any) =>
+								`<tr><td style="width:15%; text-align:center;"><strong>${sub.id}</strong></td><td>${sub.deskripsi}</td></tr>`,
+						)
+						.join("");
+				}
+				return rows;
+			})
+			.join("")}
+  </table>
+
   ${tabelMappingHtml}
 </body>
 </html>`;
