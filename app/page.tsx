@@ -24,6 +24,17 @@ function formatTanggalIndonesia(dateString: string) {
 	return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
 }
 
+function base64ToBlobUrl(base64: string) {
+	const binaryString = window.atob(base64);
+	const len = binaryString.length;
+	const bytes = new Uint8Array(len);
+	for (let i = 0; i < len; i++) {
+		bytes[i] = binaryString.charCodeAt(i);
+	}
+	const blob = new Blob([bytes], { type: "application/pdf" });
+	return URL.createObjectURL(blob);
+}
+
 export default function ExamGeneratorForm() {
 	const [metadata, setMetadata] = useState({
 		programStudi: "Teknik Elektro",
@@ -71,6 +82,12 @@ export default function ExamGeneratorForm() {
 	});
 
 	const [isGenerating, setIsGenerating] = useState(false);
+
+	// ─── STATE UNTUK PREVIEW PDF ───
+	const [isPreviewing, setIsPreviewing] = useState(false);
+	const [previewData, setPreviewData] = useState<{ urlSoal: string; urlAssessment: string } | null>(null);
+	const [previewTab, setPreviewTab] = useState<"soal" | "assessment">("soal");
+	// ───────────────────────────────
 
 	useEffect(() => {
 		let kaprogdiNama = "Dr. Ir. M. ARY HERYANTO, M.Eng., IPU., Asean.Eng.";
@@ -281,6 +298,61 @@ export default function ExamGeneratorForm() {
 		}
 	};
 
+	// ─── FUNGSI GENERATE PREVIEW PDF ───
+	const handlePreview = async () => {
+		setIsPreviewing(true);
+		const formattedDate = formatTanggalIndonesia(metadata.tanggalUjian);
+		const formattedSifat = metadata.sifatCatatan
+			? `${metadata.sifatUtama} (${metadata.sifatCatatan})`
+			: metadata.sifatUtama;
+
+		const payload = {
+			templateId: metadata.programStudi === "Teknik Elektro" ? "teknik_elektro" : "teknik_industri",
+			metadata: {
+				...metadata,
+				hariTanggal: formattedDate,
+				sifat: formattedSifat,
+				dosenPengampu: metadata.dosenPengampu,
+			},
+			cpmkList,
+			soalList,
+			pengesahan,
+		};
+
+		try {
+			const response = await fetch("/api/generate-pdf", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(payload),
+			});
+			if (!response.ok) throw new Error("Gagal generate Preview");
+
+			const { assessmentPdf, questionsPdf } = await response.json();
+
+			// Ubah Base64 menjadi URL PDF yang bisa dibuka di browser
+			const urlAssessment = base64ToBlobUrl(assessmentPdf);
+			const urlSoal = base64ToBlobUrl(questionsPdf);
+
+			setPreviewData({ urlAssessment, urlSoal });
+			setPreviewTab("soal"); // Default buka tab soal duluan
+		} catch (error) {
+			console.error(error);
+			alert("Terjadi kesalahan saat preview: " + String(error));
+		} finally {
+			setIsPreviewing(false);
+		}
+	};
+
+	const closePreview = () => {
+		if (previewData) {
+			// Hapus cache memory browser agar tidak lemot
+			URL.revokeObjectURL(previewData.urlSoal);
+			URL.revokeObjectURL(previewData.urlAssessment);
+		}
+		setPreviewData(null);
+	};
+	// ───────────────────────────────────
+
 	const isElektro = metadata.programStudi === "Teknik Elektro";
 
 	// ── SVG Icons ──────────────────────────────────────────────────────────
@@ -392,6 +464,19 @@ export default function ExamGeneratorForm() {
 		>
 			<polyline points="3 6 5 6 21 6"></polyline>
 			<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+		</svg>
+	);
+	const IconEye = () => (
+		<svg
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="2.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+			<circle cx="12" cy="12" r="3" />
 		</svg>
 	);
 
@@ -600,6 +685,29 @@ export default function ExamGeneratorForm() {
                 .eg-submit-btn:hover:not(:disabled) { background: #1d4ed8; }
                 .eg-submit-btn:disabled { opacity: 0.55; cursor: not-allowed; }
                 .eg-submit-btn svg { width: 17px; height: 17px; }
+
+				.eg-preview-btn {
+                    background: #f8fafc; color: #2563eb; border: 1px solid #bfdbfe; border-radius: 9px; 
+                    padding: 12px 24px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; 
+                    display: flex; align-items: center; gap: 9px; transition: all 0.15s;
+                }
+                .eg-preview-btn:hover:not(:disabled) { background: #eff6ff; border-color: #93c5fd; }
+                .eg-preview-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+                .eg-preview-btn svg { width: 17px; height: 17px; }
+
+                /* CSS MODAL PREVIEW */
+                .eg-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
+                .eg-modal { background: #fff; border-radius: 14px; width: 100%; max-width: 950px; height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
+                .eg-modal-header { padding: 14px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; }
+                .eg-modal-title { font-size: 16px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 15px; }
+                .eg-modal-close { background: none; border: none; cursor: pointer; color: #64748b; padding: 6px; border-radius: 8px; transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+                .eg-modal-close:hover { background: #fee2e2; color: #dc2626; }
+                .eg-modal-body { flex: 1; padding: 0; background: #525659; } /* Warna bg standar PDF viewer */
+                .eg-modal-iframe { width: 100%; height: 100%; border: none; display: block; }
+                
+                .eg-tab-wrap { display: flex; background: #e2e8f0; padding: 3px; border-radius: 8px; }
+                .eg-tab-btn { padding: 6px 16px; border: none; background: transparent; font-size: 13px; font-weight: 600; cursor: pointer; color: #475569; border-radius: 6px; transition: all 0.15s; }
+                .eg-tab-btn.active { background: #fff; color: #2563eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
                 
                 @keyframes spin { to { transform: rotate(360deg); } }
                 .eg-spin { animation: spin 0.9s linear infinite; }
@@ -1399,10 +1507,45 @@ export default function ExamGeneratorForm() {
 					</div>
 
 					<div className="eg-submit-bar">
-						<button type="button" onClick={handleResetForm} disabled={isGenerating} className="eg-reset-btn">
+						<button
+							type="button"
+							onClick={handleResetForm}
+							disabled={isGenerating || isPreviewing}
+							className="eg-reset-btn"
+						>
 							<IconTrash /> Reset Form
 						</button>
-						<button type="submit" disabled={isGenerating} className="eg-submit-btn">
+
+						{/* ─── INI DIA TOMBOL PREVIEW YANG HILANG ─── */}
+						<button
+							type="button"
+							onClick={handlePreview}
+							disabled={isGenerating || isPreviewing}
+							className="eg-preview-btn"
+						>
+							{isPreviewing ? (
+								<>
+									<svg
+										className="eg-spin"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2.5"
+										strokeLinecap="round"
+									>
+										<path d="M21 12a9 9 0 1 1-6.219-8.56" />
+									</svg>
+									Memuat...
+								</>
+							) : (
+								<>
+									<IconEye /> Preview PDF
+								</>
+							)}
+						</button>
+						{/* ────────────────────────────────────────── */}
+
+						<button type="submit" disabled={isGenerating || isPreviewing} className="eg-submit-btn">
 							{isGenerating ? (
 								<>
 									<svg
@@ -1424,6 +1567,46 @@ export default function ExamGeneratorForm() {
 							)}
 						</button>
 					</div>
+
+					{/* ─── KOMPONEN MODAL PREVIEW PDF ─── */}
+					{previewData && (
+						<div className="eg-modal-overlay" onClick={closePreview}>
+							<div className="eg-modal" onClick={(e) => e.stopPropagation()}>
+								<div className="eg-modal-header">
+									<div className="eg-modal-title">
+										Preview Ujian
+										<div className="eg-tab-wrap">
+											<button
+												type="button"
+												className={`eg-tab-btn ${previewTab === "soal" ? "active" : ""}`}
+												onClick={() => setPreviewTab("soal")}
+											>
+												Lembar Soal
+											</button>
+											<button
+												type="button"
+												className={`eg-tab-btn ${previewTab === "assessment" ? "active" : ""}`}
+												onClick={() => setPreviewTab("assessment")}
+											>
+												Rancangan Assessment
+											</button>
+										</div>
+									</div>
+									<button type="button" className="eg-modal-close" onClick={closePreview} title="Tutup Preview">
+										<IconX />
+									</button>
+								</div>
+								<div className="eg-modal-body">
+									<iframe
+										src={previewTab === "soal" ? previewData.urlSoal : previewData.urlAssessment}
+										className="eg-modal-iframe"
+										title="PDF Preview"
+									/>
+								</div>
+							</div>
+						</div>
+					)}
+					{/* ──────────────────────────────────── */}
 				</form>
 			</div>
 		</>
